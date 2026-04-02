@@ -11,52 +11,133 @@
             background: #f4f6f8;
             color: #222;
         }
+
         header {
             background: #1f3c88;
             color: white;
             padding: 1rem 2rem;
         }
+
+        nav {
+            margin-top: 0.75rem;
+        }
+
         nav a {
             color: white;
             margin-right: 1rem;
             text-decoration: none;
             font-weight: bold;
         }
+
+        nav a:hover {
+            text-decoration: underline;
+        }
+
         main {
             padding: 2rem;
-            max-width: 1000px;
+            max-width: 1100px;
             margin: auto;
             background: white;
             min-height: 80vh;
         }
-        h1, h2 {
+
+        h1, h2, h3 {
             color: #1f3c88;
         }
+
         a.button, button {
             display: inline-block;
-            padding: 0.5rem 1rem;
+            padding: 0.6rem 1rem;
             background: #1f3c88;
             color: white;
             text-decoration: none;
             border: none;
-            border-radius: 4px;
+            border-radius: 6px;
             cursor: pointer;
+            font-weight: bold;
         }
+
+        a.button:hover, button:hover {
+            background: #16306d;
+        }
+
         .card {
             border: 1px solid #ddd;
-            border-radius: 6px;
+            border-radius: 8px;
             padding: 1rem;
             margin-bottom: 1rem;
             background: #fafafa;
         }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 1rem;
+            margin: 1.5rem 0;
+        }
+
+        .stat-card {
+            background: #eef3ff;
+            border: 1px solid #cfd9f6;
+            border-radius: 10px;
+            padding: 1rem;
+        }
+
+        .stat-card h3 {
+            margin-top: 0;
+            margin-bottom: 0.5rem;
+            font-size: 1rem;
+        }
+
+        .stat-number {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #16306d;
+        }
+
+        .section {
+            margin-top: 2rem;
+        }
+
         form p {
             margin-bottom: 1rem;
         }
+
         input, select, textarea {
             width: 100%;
-            padding: 0.5rem;
+            padding: 0.65rem;
             margin-top: 0.25rem;
             box-sizing: border-box;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+        }
+
+        .inline-links a {
+            margin-right: 0.75rem;
+        }
+
+        .muted {
+            color: #666;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 0.25rem 0.6rem;
+            border-radius: 999px;
+            background: #e3ebff;
+            color: #1f3c88;
+            font-size: 0.85rem;
+            font-weight: bold;
+        }
+
+        ul.clean-list {
+            list-style: none;
+            padding-left: 0;
+        }
+
+        ul.clean-list li {
+            padding: 0.75rem 0;
+            border-bottom: 1px solid #eee;
         }
     </style>
 </head>

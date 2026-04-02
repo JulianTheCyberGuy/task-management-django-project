@@ -1,7 +1,79 @@
 {% extends "task_app/base.html" %}
 
 {% block content %}
-<h2>Welcome</h2>
-<p>This is the functional task management application built with Django.</p>
-<p>Use the navigation above to manage organizations, projects, task statuses, and tasks.</p>
+<h2>Dashboard</h2>
+<p class="muted">
+    This dashboard provides a quick overview of the task management application and recent activity.
+</p>
+
+<div class="grid">
+    <div class="stat-card">
+        <h3>Organizations</h3>
+        <div class="stat-number">{{ organization_count }}</div>
+    </div>
+    <div class="stat-card">
+        <h3>Projects</h3>
+        <div class="stat-number">{{ project_count }}</div>
+    </div>
+    <div class="stat-card">
+        <h3>Task Statuses</h3>
+        <div class="stat-number">{{ status_count }}</div>
+    </div>
+    <div class="stat-card">
+        <h3>Total Tasks</h3>
+        <div class="stat-number">{{ task_count }}</div>
+    </div>
+    <div class="stat-card">
+        <h3>Completed Tasks</h3>
+        <div class="stat-number">{{ completed_task_count }}</div>
+    </div>
+    <div class="stat-card">
+        <h3>Incomplete Tasks</h3>
+        <div class="stat-number">{{ incomplete_task_count }}</div>
+    </div>
+</div>
+
+<div class="section">
+    <h3>Status Summary</h3>
+    {% if status_summary %}
+        <ul class="clean-list">
+            {% for status in status_summary %}
+                <li>
+                    <strong>{{ status.name }}</strong>
+                    <span class="badge">{{ status.task_total }} task{{ status.task_total|pluralize }}</span>
+                    {% if status.description %}
+                        <div class="muted">{{ status.description }}</div>
+                    {% endif %}
+                </li>
+            {% endfor %}
+        </ul>
+    {% else %}
+        <p>No task statuses have been created yet.</p>
+    {% endif %}
+</div>
+
+<div class="section">
+    <h3>Recent Tasks</h3>
+    {% if recent_tasks %}
+        <ul class="clean-list">
+            {% for task in recent_tasks %}
+                <li>
+                    <strong>{{ task.title }}</strong><br>
+                    <span class="muted">Project:</span> {{ task.project.name }}
+                    <span class="muted">| Status:</span> {{ task.status.name }}
+                    <span class="muted">| Priority:</span> {{ task.get_priority_display }}
+                </li>
+            {% endfor %}
+        </ul>
+    {% else %}
+        <p>No tasks have been added yet.</p>
+    {% endif %}
+</div>
+
+<div class="section inline-links">
+    <a class="button" href="{% url 'organization-add' %}">Add Organization</a>
+    <a class="button" href="{% url 'project-add' %}">Add Project</a>
+    <a class="button" href="{% url 'taskstatus-add' %}">Add Status</a>
+    <a class="button" href="{% url 'task-add' %}">Add Task</a>
+</div>
 {% endblock %}

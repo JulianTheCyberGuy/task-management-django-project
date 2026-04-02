@@ -1,3 +1,4 @@
+from django.db.models import Count
 from django.urls import reverse_lazy
 from django.views.generic import TemplateView, ListView, DetailView, CreateView, UpdateView
 
@@ -7,11 +8,24 @@ from .models import Organization, Project, TaskStatus, Task
 class HomePageView(TemplateView):
     template_name = "task_app/home.html"
 
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["organization_count"] = Organization.objects.count()
+        context["project_count"] = Project.objects.count()
+        context["status_count"] = TaskStatus.objects.count()
+        context["task_count"] = Task.objects.count()
+        context["completed_task_count"] = Task.objects.filter(is_completed=True).count()
+        context["incomplete_task_count"] = Task.objects.filter(is_completed=False).count()
+        context["recent_tasks"] = Task.objects.select_related("project", "status").order_by("-id")[:5]
+        context["status_summary"] = TaskStatus.objects.annotate(task_total=Count("tasks")).order_by("sort_order", "name")
+        return context
+
 
 class OrganizationListView(ListView):
     model = Organization
     template_name = "task_app/organization_list.html"
     context_object_name = "organizations"
+    queryset = Organization.objects.order_by("name")
 
 
 class OrganizationDetailView(DetailView):
@@ -38,6 +52,7 @@ class ProjectListView(ListView):
     model = Project
     template_name = "task_app/project_list.html"
     context_object_name = "projects"
+    queryset = Project.objects.select_related("organization").order_by("name")
 
 
 class ProjectDetailView(DetailView):
@@ -64,6 +79,7 @@ class TaskStatusListView(ListView):
     model = TaskStatus
     template_name = "task_app/taskstatus_list.html"
     context_object_name = "statuses"
+    queryset = TaskStatus.objects.order_by("sort_order", "name")
 
 
 class TaskStatusDetailView(DetailView):
@@ -90,6 +106,11 @@ class TaskListView(ListView):
     model = Task
     template_name = "task_app/task_list.html"
     context_object_name = "tasks"
+    queryset = Task.objects.select_related("project", "status").order_by(
+        "status__sort_order",
+        "due_date",
+        "title"
+    )
 
 
 class TaskDetailView(DetailView):
