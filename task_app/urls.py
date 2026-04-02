@@ -1,0 +1,44 @@
+from django.urls import path
+from .views import (
+    HomePageView,
+    OrganizationListView,
+    OrganizationDetailView,
+    OrganizationCreateView,
+    OrganizationUpdateView,
+    ProjectListView,
+    ProjectDetailView,
+    ProjectCreateView,
+    ProjectUpdateView,
+    TaskStatusListView,
+    TaskStatusDetailView,
+    TaskStatusCreateView,
+    TaskStatusUpdateView,
+    TaskListView,
+    TaskDetailView,
+    TaskCreateView,
+    TaskUpdateView,
+)
+
+urlpatterns = [
+    path("", HomePageView.as_view(), name="home"),
+
+    path("organizations/", OrganizationListView.as_view(), name="organization-list"),
+    path("organizations/add/", OrganizationCreateView.as_view(), name="organization-add"),
+    path("organizations/<int:pk>/", OrganizationDetailView.as_view(), name="organization-detail"),
+    path("organizations/<int:pk>/edit/", OrganizationUpdateView.as_view(), name="organization-edit"),
+
+    path("projects/", ProjectListView.as_view(), name="project-list"),
+    path("projects/add/", ProjectCreateView.as_view(), name="project-add"),
+    path("projects/<int:pk>/", ProjectDetailView.as_view(), name="project-detail"),
+    path("projects/<int:pk>/edit/", ProjectUpdateView.as_view(), name="project-edit"),
+
+    path("statuses/", TaskStatusListView.as_view(), name="taskstatus-list"),
+    path("statuses/add/", TaskStatusCreateView.as_view(), name="taskstatus-add"),
+    path("statuses/<int:pk>/", TaskStatusDetailView.as_view(), name="taskstatus-detail"),
+    path("statuses/<int:pk>/edit/", TaskStatusUpdateView.as_view(), name="taskstatus-edit"),
+
+    path("tasks/", TaskListView.as_view(), name="task-list"),
+    path("tasks/add/", TaskCreateView.as_view(), name="task-add"),
+    path("tasks/<int:pk>/", TaskDetailView.as_view(), name="task-detail"),
+    path("tasks/<int:pk>/edit/", TaskUpdateView.as_view(), name="task-edit"),
+]

@@ -1,0 +1,21 @@
+{% extends "task_app/base.html" %}
+
+{% block content %}
+<h2>{{ project.name }}</h2>
+<p><strong>Organization:</strong> {{ project.organization.name }}</p>
+<p><strong>Description:</strong> {{ project.description|default:"No description" }}</p>
+<p><strong>Start Date:</strong> {{ project.start_date|default:"N/A" }}</p>
+<p><strong>End Date:</strong> {{ project.end_date|default:"N/A" }}</p>
+<p><strong>Active:</strong> {{ project.is_active }}</p>
+
+<h3>Tasks</h3>
+{% for task in project.tasks.all %}
+    <div class="card">
+        <strong>{{ task.title }}</strong> - {{ task.status.name }}
+    </div>
+{% empty %}
+    <p>No tasks for this project yet.</p>
+{% endfor %}
+
+<a class="button" href="{% url 'project-edit' project.pk %}">Edit Project</a>
+{% endblock %}

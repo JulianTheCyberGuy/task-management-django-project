@@ -1,0 +1,14 @@
+{% extends "task_app/base.html" %}
+
+{% block content %}
+<h2>{{ task.title }}</h2>
+<p><strong>Project:</strong> {{ task.project.name }}</p>
+<p><strong>Status:</strong> {{ task.status.name }}</p>
+<p><strong>Description:</strong> {{ task.description|default:"No description" }}</p>
+<p><strong>Assigned To:</strong> {{ task.assigned_to|default:"Unassigned" }}</p>
+<p><strong>Due Date:</strong> {{ task.due_date|default:"N/A" }}</p>
+<p><strong>Priority:</strong> {{ task.get_priority_display }}</p>
+<p><strong>Completed:</strong> {{ task.is_completed }}</p>
+
+<a class="button" href="{% url 'task-edit' task.pk %}">Edit Task</a>
+{% endblock %}

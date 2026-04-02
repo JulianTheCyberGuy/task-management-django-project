@@ -1,0 +1,18 @@
+{% extends "task_app/base.html" %}
+
+{% block content %}
+<h2>Organizations</h2>
+<a class="button" href="{% url 'organization-add' %}">Add Organization</a>
+<hr>
+{% for organization in organizations %}
+    <div class="card">
+        <h3>{{ organization.name }}</h3>
+        <p>Email: {{ organization.contact_email|default:"N/A" }}</p>
+        <p>Phone: {{ organization.phone_number|default:"N/A" }}</p>
+        <a href="{% url 'organization-detail' organization.pk %}">View</a> |
+        <a href="{% url 'organization-edit' organization.pk %}">Edit</a>
+    </div>
+{% empty %}
+    <p>No organizations found.</p>
+{% endfor %}
+{% endblock %}

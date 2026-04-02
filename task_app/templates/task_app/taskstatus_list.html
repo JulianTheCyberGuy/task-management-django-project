@@ -1,0 +1,17 @@
+{% extends "task_app/base.html" %}
+
+{% block content %}
+<h2>Task Statuses</h2>
+<a class="button" href="{% url 'taskstatus-add' %}">Add Task Status</a>
+<hr>
+{% for status in statuses %}
+    <div class="card">
+        <h3>{{ status.name }}</h3>
+        <p>{{ status.description|default:"No description" }}</p>
+        <a href="{% url 'taskstatus-detail' status.pk %}">View</a> |
+        <a href="{% url 'taskstatus-edit' status.pk %}">Edit</a>
+    </div>
+{% empty %}
+    <p>No statuses found.</p>
+{% endfor %}
+{% endblock %}

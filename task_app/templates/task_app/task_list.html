@@ -1,0 +1,19 @@
+{% extends "task_app/base.html" %}
+
+{% block content %}
+<h2>Tasks</h2>
+<a class="button" href="{% url 'task-add' %}">Add Task</a>
+<hr>
+{% for task in tasks %}
+    <div class="card">
+        <h3>{{ task.title }}</h3>
+        <p><strong>Project:</strong> {{ task.project.name }}</p>
+        <p><strong>Status:</strong> {{ task.status.name }}</p>
+        <p><strong>Priority:</strong> {{ task.get_priority_display }}</p>
+        <a href="{% url 'task-detail' task.pk %}">View</a> |
+        <a href="{% url 'task-edit' task.pk %}">Edit</a>
+    </div>
+{% empty %}
+    <p>No tasks found.</p>
+{% endfor %}
+{% endblock %}
