@@ -3,8 +3,8 @@
 {% block content %}
 <h2>Secure Access Verification</h2>
 <p>
-    This page is protected using asymmetric cryptography. To unlock the protected report,
-    sign the challenge message below with the private RSA key, then paste the base64-encoded signature.
+    This page uses RSA signature verification. First, sign the challenge message with the private RSA key.
+    After successful verification, the system generates a short-lived six-digit unlock code for easier access.
 </p>
 
 <div class="card">
@@ -18,6 +18,6 @@
         <label for="signature"><strong>Base64 Signature</strong></label>
         <textarea name="signature" id="signature" rows="8" required></textarea>
     </p>
-    <button type="submit">Verify Signature</button>
+    <button type="submit">Verify RSA Signature</button>
 </form>
 {% endblock %}

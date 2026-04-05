@@ -15,16 +15,46 @@
         header {
             background: #1f3c88;
             color: white;
-            padding: 1rem 2rem;
+            padding: 1rem 1.25rem;
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+        }
+
+        .topbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .brand {
+            font-size: 1.5rem;
+            font-weight: bold;
+            margin: 0;
+            color: white;
+        }
+
+        .menu-toggle {
+            display: none;
+            background: transparent;
+            border: 1px solid rgba(255,255,255,0.35);
+            color: white;
+            border-radius: 6px;
+            padding: 0.45rem 0.65rem;
+            font-size: 1.2rem;
+            cursor: pointer;
         }
 
         nav {
-            margin-top: 0.75rem;
+            margin-top: 0.85rem;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.75rem;
         }
 
         nav a {
             color: white;
-            margin-right: 1rem;
             text-decoration: none;
             font-weight: bold;
         }
@@ -163,12 +193,81 @@
             padding: 0.15rem 0.35rem;
             border-radius: 4px;
         }
+
+        .modal-backdrop {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.55);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+            padding: 1rem;
+        }
+
+        .modal-backdrop.show {
+            display: flex;
+        }
+
+        .modal-card {
+            background: white;
+            width: 100%;
+            max-width: 560px;
+            border-radius: 12px;
+            padding: 1.5rem;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+
+        .modal-card h2 {
+            margin-top: 0;
+        }
+
+        .modal-actions {
+            margin-top: 1rem;
+            display: flex;
+            gap: 0.75rem;
+            flex-wrap: wrap;
+        }
+
+        .button.secondary {
+            background: #6b7280;
+        }
+
+        @media (max-width: 768px) {
+            .menu-toggle {
+                display: inline-block;
+            }
+
+            nav {
+                display: none;
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 0.85rem;
+                margin-top: 1rem;
+            }
+
+            nav.open {
+                display: flex;
+            }
+
+            main {
+                padding: 1.25rem;
+            }
+
+            .brand {
+                font-size: 1.2rem;
+            }
+        }
     </style>
 </head>
 <body>
     <header>
-        <h1>Task Management App</h1>
-        <nav>
+        <div class="topbar">
+            <div class="brand">Task Management App</div>
+            <button class="menu-toggle" id="menuToggle" aria-label="Toggle navigation">☰</button>
+        </div>
+
+        <nav id="siteNav">
             <a href="{% url 'home' %}">Home</a>
             <a href="{% url 'organization-list' %}">Organizations</a>
             <a href="{% url 'project-list' %}">Projects</a>
@@ -179,6 +278,7 @@
             <a href="/admin/">Admin</a>
         </nav>
     </header>
+
     <main>
         {% if messages %}
             {% for message in messages %}
@@ -189,5 +289,57 @@
         {% endif %}
         {% block content %}{% endblock %}
     </main>
+
+    <div class="modal-backdrop" id="welcomeModal">
+        <div class="modal-card">
+            <h2>Welcome to the Task Management App</h2>
+            <p>
+                This application helps users manage organizations, projects, task statuses, and tasks
+                through a user-friendly interface.
+            </p>
+            <p>
+                Use the navigation menu to create and manage records. The Secure Access section demonstrates
+                asymmetric key verification, and the Protected Report section is only unlocked after successful verification.
+            </p>
+            <div class="modal-actions">
+                <button id="closeWelcomeModal">Got it</button>
+                <button class="button secondary" id="hideWelcomeForever">Do not show again</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const menuToggle = document.getElementById("menuToggle");
+        const siteNav = document.getElementById("siteNav");
+
+        if (menuToggle && siteNav) {
+            menuToggle.addEventListener("click", function () {
+                siteNav.classList.toggle("open");
+            });
+        }
+
+        const welcomeModal = document.getElementById("welcomeModal");
+        const closeWelcomeModal = document.getElementById("closeWelcomeModal");
+        const hideWelcomeForever = document.getElementById("hideWelcomeForever");
+
+        if (welcomeModal && !localStorage.getItem("taskAppWelcomeDismissed")) {
+            window.addEventListener("load", function () {
+                welcomeModal.classList.add("show");
+            });
+        }
+
+        if (closeWelcomeModal) {
+            closeWelcomeModal.addEventListener("click", function () {
+                welcomeModal.classList.remove("show");
+            });
+        }
+
+        if (hideWelcomeForever) {
+            hideWelcomeForever.addEventListener("click", function () {
+                localStorage.setItem("taskAppWelcomeDismissed", "true");
+                welcomeModal.classList.remove("show");
+            });
+        }
+    </script>
 </body>
 </html>

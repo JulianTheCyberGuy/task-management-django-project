@@ -1,0 +1,24 @@
+{% extends "task_app/base.html" %}
+
+{% block content %}
+<h2>Six-Digit Unlock Code</h2>
+<p>
+    The RSA signature has already been verified. The application generated the six-digit unlock code below.
+    Enter it to complete the secure access process.
+</p>
+
+<div class="card">
+    <p><strong>Generated unlock code:</strong></p>
+    <h3>{{ generated_code }}</h3>
+    <p class="muted">This code expires in 5 minutes.</p>
+</div>
+
+<form method="post">
+    {% csrf_token %}
+    <p>
+        <label for="unlock_code"><strong>Enter six-digit code</strong></label>
+        <input type="text" id="unlock_code" name="unlock_code" maxlength="6" required>
+    </p>
+    <button type="submit">Unlock Protected Report</button>
+</form>
+{% endblock %}

@@ -1,10 +1,12 @@
 from pathlib import Path
 import base64
+import random
 
 from django.contrib import messages
 from django.db.models import Count
 from django.shortcuts import redirect, render
 from django.urls import reverse_lazy
+from django.utils import timezone
 from django.views.generic import TemplateView, ListView, DetailView, CreateView, UpdateView
 
 from cryptography.hazmat.primitives import hashes
@@ -162,7 +164,6 @@ class TaskUpdateView(UpdateView):
 
 def secure_access_view(request):
     challenge_message = "unlock-task-report"
-    is_verified = False
 
     if request.method == "POST":
         signature_b64 = request.POST.get("signature", "").strip()
@@ -181,9 +182,16 @@ def secure_access_view(request):
                 hashes.SHA256(),
             )
 
-            request.session["secure_access_granted"] = True
-            messages.success(request, "Signature verified successfully. Protected page unlocked.")
-            return redirect("protected-report")
+            unlock_code = f"{random.randint(0, 999999):06d}"
+            request.session["secure_unlock_code"] = unlock_code
+            request.session["secure_unlock_verified"] = False
+            request.session["secure_unlock_created"] = timezone.now().isoformat()
+
+            messages.success(
+                request,
+                "RSA signature verified successfully. A six-digit unlock code has been generated."
+            )
+            return redirect("secure-code")
 
         except Exception:
             messages.error(request, "Signature verification failed. Access denied.")
@@ -193,14 +201,51 @@ def secure_access_view(request):
         "task_app/secure_access.html",
         {
             "challenge_message": challenge_message,
-            "is_verified": is_verified,
+        },
+    )
+
+
+def secure_code_view(request):
+    unlock_code = request.session.get("secure_unlock_code")
+    created_at_str = request.session.get("secure_unlock_created")
+
+    if not unlock_code or not created_at_str:
+        messages.error(request, "No verified unlock request was found. Please verify the RSA signature first.")
+        return redirect("secure-access")
+
+    created_at = timezone.datetime.fromisoformat(created_at_str)
+    if timezone.is_naive(created_at):
+        created_at = timezone.make_aware(created_at, timezone.get_current_timezone())
+
+    if timezone.now() > created_at + timezone.timedelta(minutes=5):
+        request.session.pop("secure_unlock_code", None)
+        request.session.pop("secure_unlock_created", None)
+        request.session.pop("secure_unlock_verified", None)
+        messages.error(request, "Your six-digit unlock code expired. Please verify the signature again.")
+        return redirect("secure-access")
+
+    if request.method == "POST":
+        entered_code = request.POST.get("unlock_code", "").strip()
+
+        if entered_code == unlock_code:
+            request.session["secure_unlock_verified"] = True
+            messages.success(request, "Six-digit code verified successfully. Protected report unlocked.")
+            return redirect("protected-report")
+
+        messages.error(request, "Invalid six-digit code. Please try again.")
+
+    return render(
+        request,
+        "task_app/secure_code.html",
+        {
+            "generated_code": unlock_code,
         },
     )
 
 
 def protected_report_view(request):
-    if not request.session.get("secure_access_granted"):
-        messages.error(request, "You must verify a valid RSA signature before accessing this page.")
+    if not request.session.get("secure_unlock_verified"):
+        messages.error(request, "You must complete secure verification before accessing this page.")
         return redirect("secure-access")
 
     tasks = Task.objects.select_related("project", "status").order_by("status__sort_order", "title")

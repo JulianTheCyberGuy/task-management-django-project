@@ -18,6 +18,7 @@ from .views import (
     TaskCreateView,
     TaskUpdateView,
     secure_access_view,
+    secure_code_view,
     protected_report_view,
 )
 
@@ -45,5 +46,6 @@ urlpatterns = [
     path("tasks/<int:pk>/edit/", TaskUpdateView.as_view(), name="task-edit"),
 
     path("secure-access/", secure_access_view, name="secure-access"),
+    path("secure-code/", secure_code_view, name="secure-code"),
     path("protected-report/", protected_report_view, name="protected-report"),
 ]
