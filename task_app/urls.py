@@ -17,6 +17,8 @@ from .views import (
     TaskDetailView,
     TaskCreateView,
     TaskUpdateView,
+    secure_access_view,
+    protected_report_view,
 )
 
 urlpatterns = [
@@ -41,4 +43,7 @@ urlpatterns = [
     path("tasks/add/", TaskCreateView.as_view(), name="task-add"),
     path("tasks/<int:pk>/", TaskDetailView.as_view(), name="task-detail"),
     path("tasks/<int:pk>/edit/", TaskUpdateView.as_view(), name="task-edit"),
+
+    path("secure-access/", secure_access_view, name="secure-access"),
+    path("protected-report/", protected_report_view, name="protected-report"),
 ]

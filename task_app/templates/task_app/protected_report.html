@@ -1,0 +1,23 @@
+{% extends "task_app/base.html" %}
+
+{% block content %}
+<h2>Protected Task Report</h2>
+<p>
+    Access to this page was granted only after successful RSA signature verification
+    using the public key stored in the application.
+</p>
+
+{% if tasks %}
+    {% for task in tasks %}
+        <div class="card">
+            <h3>{{ task.title }}</h3>
+            <p><strong>Project:</strong> {{ task.project.name }}</p>
+            <p><strong>Status:</strong> {{ task.status.name }}</p>
+            <p><strong>Priority:</strong> {{ task.get_priority_display }}</p>
+            <p><strong>Completed:</strong> {{ task.is_completed }}</p>
+        </div>
+    {% endfor %}
+{% else %}
+    <p>No tasks are currently available.</p>
+{% endif %}
+{% endblock %}

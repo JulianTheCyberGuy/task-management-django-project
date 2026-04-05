@@ -1,6 +1,15 @@
+from pathlib import Path
+import base64
+
+from django.contrib import messages
 from django.db.models import Count
+from django.shortcuts import redirect, render
 from django.urls import reverse_lazy
 from django.views.generic import TemplateView, ListView, DetailView, CreateView, UpdateView
+
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.asymmetric import padding
+from cryptography.hazmat.primitives.serialization import load_pem_public_key
 
 from .models import Organization, Project, TaskStatus, Task
 
@@ -149,3 +158,57 @@ class TaskUpdateView(UpdateView):
         "is_completed",
     ]
     success_url = reverse_lazy("task-list")
+
+
+def secure_access_view(request):
+    challenge_message = "unlock-task-report"
+    is_verified = False
+
+    if request.method == "POST":
+        signature_b64 = request.POST.get("signature", "").strip()
+
+        try:
+            public_key_path = Path(__file__).resolve().parent / "keys" / "public_key.pem"
+            public_key_data = public_key_path.read_bytes()
+            public_key = load_pem_public_key(public_key_data)
+
+            signature = base64.b64decode(signature_b64)
+
+            public_key.verify(
+                signature,
+                challenge_message.encode("utf-8"),
+                padding.PKCS1v15(),
+                hashes.SHA256(),
+            )
+
+            request.session["secure_access_granted"] = True
+            messages.success(request, "Signature verified successfully. Protected page unlocked.")
+            return redirect("protected-report")
+
+        except Exception:
+            messages.error(request, "Signature verification failed. Access denied.")
+
+    return render(
+        request,
+        "task_app/secure_access.html",
+        {
+            "challenge_message": challenge_message,
+            "is_verified": is_verified,
+        },
+    )
+
+
+def protected_report_view(request):
+    if not request.session.get("secure_access_granted"):
+        messages.error(request, "You must verify a valid RSA signature before accessing this page.")
+        return redirect("secure-access")
+
+    tasks = Task.objects.select_related("project", "status").order_by("status__sort_order", "title")
+
+    return render(
+        request,
+        "task_app/protected_report.html",
+        {
+            "tasks": tasks,
+        },
+    )

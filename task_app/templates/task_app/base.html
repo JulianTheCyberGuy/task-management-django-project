@@ -139,6 +139,30 @@
             padding: 0.75rem 0;
             border-bottom: 1px solid #eee;
         }
+
+        .message {
+            padding: 0.75rem 1rem;
+            border-radius: 6px;
+            margin-bottom: 1rem;
+        }
+
+        .message.success {
+            background: #e7f7ea;
+            color: #1f6b2a;
+            border: 1px solid #b9e2c1;
+        }
+
+        .message.error {
+            background: #fdeaea;
+            color: #8a1f1f;
+            border: 1px solid #efb8b8;
+        }
+
+        code {
+            background: #f0f0f0;
+            padding: 0.15rem 0.35rem;
+            border-radius: 4px;
+        }
     </style>
 </head>
 <body>
@@ -150,10 +174,19 @@
             <a href="{% url 'project-list' %}">Projects</a>
             <a href="{% url 'taskstatus-list' %}">Task Statuses</a>
             <a href="{% url 'task-list' %}">Tasks</a>
+            <a href="{% url 'secure-access' %}">Secure Access</a>
+            <a href="{% url 'protected-report' %}">Protected Report</a>
             <a href="/admin/">Admin</a>
         </nav>
     </header>
     <main>
+        {% if messages %}
+            {% for message in messages %}
+                <div class="message {% if message.tags %}{{ message.tags }}{% endif %}">
+                    {{ message }}
+                </div>
+            {% endfor %}
+        {% endif %}
         {% block content %}{% endblock %}
     </main>
 </body>

@@ -1,0 +1,23 @@
+{% extends "task_app/base.html" %}
+
+{% block content %}
+<h2>Secure Access Verification</h2>
+<p>
+    This page is protected using asymmetric cryptography. To unlock the protected report,
+    sign the challenge message below with the private RSA key, then paste the base64-encoded signature.
+</p>
+
+<div class="card">
+    <p><strong>Challenge message:</strong></p>
+    <p><code>{{ challenge_message }}</code></p>
+</div>
+
+<form method="post">
+    {% csrf_token %}
+    <p>
+        <label for="signature"><strong>Base64 Signature</strong></label>
+        <textarea name="signature" id="signature" rows="8" required></textarea>
+    </p>
+    <button type="submit">Verify Signature</button>
+</form>
+{% endblock %}

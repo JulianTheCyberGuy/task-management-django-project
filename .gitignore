@@ -15,3 +15,9 @@ staticfiles/
 
 # VS Code   
 .vscode/
+
+# Private Key
+private_key.pem
+challenge.txt
+signature.bin
+signature.txt
