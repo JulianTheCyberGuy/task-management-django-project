@@ -47,10 +47,10 @@
         }
 
         nav {
-            margin-top: 0.85rem;
             display: flex;
             flex-wrap: wrap;
-            gap: 0.75rem;
+            align-items: center;
+            gap: 0.5rem;
         }
 
         nav a {
@@ -61,6 +61,17 @@
 
         nav a:hover {
             text-decoration: underline;
+        }
+
+        .nav-separator {
+            color: rgba(255,255,255,0.7);
+        }
+        
+        /* Hide separators on mobile */
+        @media (max-width: 768px) {
+            .nav-separator {
+                display: none;
+            }
         }
 
         main {
@@ -269,12 +280,26 @@
 
         <nav id="siteNav">
             <a href="{% url 'home' %}">Home</a>
+            <span class="nav-separator">|</span>
+        
             <a href="{% url 'organization-list' %}">Organizations</a>
+            <span class="nav-separator">|</span>
+        
             <a href="{% url 'project-list' %}">Projects</a>
+            <span class="nav-separator">|</span>
+        
             <a href="{% url 'taskstatus-list' %}">Task Statuses</a>
+            <span class="nav-separator">|</span>
+        
             <a href="{% url 'task-list' %}">Tasks</a>
+            <span class="nav-separator">|</span>
+        
             <a href="{% url 'secure-access' %}">Secure Access</a>
+            <span class="nav-separator">|</span>
+        
             <a href="{% url 'protected-report' %}">Protected Report</a>
+            <span class="nav-separator">|</span>
+        
             <a href="/admin/">Admin</a>
         </nav>
     </header>
