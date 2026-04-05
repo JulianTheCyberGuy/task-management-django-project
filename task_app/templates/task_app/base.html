@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Task Management App</title>
+
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -16,42 +17,51 @@
             background: #1f3c88;
             color: white;
             padding: 1.5rem 1.25rem 1rem 1.25rem;
-            position: sticky;
-            top: 0;
-            z-index: 1000;
         }
 
         .topbar {
             display: flex;
             align-items: center;
             justify-content: space-between;
-            gap: 1rem;
-            margin-bottom: 1rem;
+            margin-bottom: 0.75rem;
         }
 
         .brand {
             font-size: 1.5rem;
             font-weight: bold;
-            margin: 0;
             color: white;
         }
 
         .menu-toggle {
             display: none;
             background: transparent;
-            border: 1px solid rgba(255,255,255,0.35);
+            border: 1px solid rgba(255,255,255,0.4);
             color: white;
             border-radius: 6px;
-            padding: 0.45rem 0.65rem;
+            padding: 0.4rem 0.6rem;
             font-size: 1.2rem;
             cursor: pointer;
         }
 
-        nav {
+        #siteNav {
             display: flex;
+            align-items: center;
             flex-wrap: wrap;
+            width: 100%;
+            gap: 1.5rem;
+        }
+
+        .nav-left,
+        .nav-right {
+            display: flex;
             align-items: center;
             gap: 0.5rem;
+        }
+
+        .nav-right {
+            margin-left: auto;
+            padding-left: 1.5rem;
+            border-left: 1px solid rgba(255, 255, 255, 0.35);
         }
 
         nav a {
@@ -65,41 +75,43 @@
         }
 
         .nav-separator {
-            color: rgba(255,255,255,0.7);
-        }
-        
-        /* Hide separators on mobile */
-        @media (max-width: 768px) {
-            .nav-separator {
-                display: none;
-            }
+            color: rgba(255,255,255,0.6);
         }
 
         main {
             padding: 2rem;
             max-width: 1100px;
-            margin: auto;
+            margin: 2rem auto;
             background: white;
             min-height: 80vh;
+            border-radius: 10px;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
         }
 
         h1, h2, h3 {
             color: #1f3c88;
         }
 
-        a.button, button {
-            display: inline-block;
+        hr {
+            margin: 2rem 0 1.5rem 0;
+            border: none;
+            border-top: 1px solid #ddd;
+        }
+
+        a.button,
+        button {
             padding: 0.6rem 1rem;
             background: #1f3c88;
             color: white;
-            text-decoration: none;
             border: none;
             border-radius: 6px;
             cursor: pointer;
             font-weight: bold;
+            text-decoration: none;
         }
 
-        a.button:hover, button:hover {
+        a.button:hover,
+        button:hover {
             background: #16306d;
         }
 
@@ -191,19 +203,11 @@
         .message.success {
             background: #e7f7ea;
             color: #1f6b2a;
-            border: 1px solid #b9e2c1;
         }
 
         .message.error {
             background: #fdeaea;
             color: #8a1f1f;
-            border: 1px solid #efb8b8;
-        }
-
-        code {
-            background: #f0f0f0;
-            padding: 0.15rem 0.35rem;
-            border-radius: 4px;
         }
 
         .modal-backdrop {
@@ -222,16 +226,23 @@
         }
 
         .modal-card {
-            background: white;
+            background: #ffffff;
             width: 100%;
-            max-width: 560px;
+            max-width: 520px;
             border-radius: 12px;
             padding: 1.5rem;
             box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            color: #222;
         }
 
         .modal-card h2 {
             margin-top: 0;
+            color: #1f3c88;
+        }
+
+        .modal-card p {
+            color: #333;
+            line-height: 1.5;
         }
 
         .modal-actions {
@@ -241,8 +252,17 @@
             flex-wrap: wrap;
         }
 
-        .button.secondary {
+        .modal-actions button {
+            background: #1f3c88;
+            color: white;
+        }
+
+        .modal-actions .secondary {
             background: #6b7280;
+        }
+
+        .modal-actions .secondary:hover {
+            background: #4b5563;
         }
 
         @media (max-width: 768px) {
@@ -250,20 +270,43 @@
                 display: inline-block;
             }
 
-            nav {
+            #siteNav {
                 display: none;
                 flex-direction: column;
                 align-items: flex-start;
-                gap: 0.85rem;
+                gap: 1rem;
                 margin-top: 1rem;
             }
 
-            nav.open {
+            #siteNav.open {
                 display: flex;
+            }
+
+            .nav-left,
+            .nav-right {
+                display: flex;
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 0.75rem;
+                margin-left: 0;
+                padding-left: 0;
+                border-left: none;
+            }
+
+            .nav-right {
+                margin-top: 0.75rem;
+                padding-top: 0.75rem;
+                border-top: 1px solid rgba(255, 255, 255, 0.25);
+                width: 100%;
+            }
+
+            .nav-separator {
+                display: none;
             }
 
             main {
                 padding: 1.25rem;
+                margin: 1rem;
             }
 
             .brand {
@@ -273,99 +316,102 @@
     </style>
 </head>
 <body>
-    <header>
-        <div class="topbar">
-            <div class="brand">Task Management App</div>
-            <button class="menu-toggle" id="menuToggle" aria-label="Toggle navigation">☰</button>
-        </div>
 
-        <nav id="siteNav">
-            <a href="{% url 'home' %}">Home</a>
-            <span class="nav-separator">|</span>
-        
-            <a href="{% url 'organization-list' %}">Organizations</a>
-            <span class="nav-separator">|</span>
-        
-            <a href="{% url 'project-list' %}">Projects</a>
-            <span class="nav-separator">|</span>
-        
-            <a href="{% url 'taskstatus-list' %}">Task Statuses</a>
-            <span class="nav-separator">|</span>
-        
-            <a href="{% url 'task-list' %}">Tasks</a>
-            <span class="nav-separator">|</span>
-        
-            <a href="{% url 'secure-access' %}">Secure Access</a>
-            <span class="nav-separator">|</span>
-        
-            <a href="{% url 'protected-report' %}">Protected Report</a>
-            <span class="nav-separator">|</span>
-        
-            <a href="/admin/">Admin</a>
-        </nav>
-    </header>
-
-    <main>
-        {% if messages %}
-            {% for message in messages %}
-                <div class="message {% if message.tags %}{{ message.tags }}{% endif %}">
-                    {{ message }}
-                </div>
-            {% endfor %}
-        {% endif %}
-        {% block content %}{% endblock %}
-    </main>
-
-    <div class="modal-backdrop" id="welcomeModal">
-        <div class="modal-card">
-            <h2>Welcome to the Task Management App</h2>
-            <p>
-                This application helps users manage organizations, projects, task statuses, and tasks
-                through a user-friendly interface.
-            </p>
-            <p>
-                Use the navigation menu to create and manage records. The Secure Access section demonstrates
-                asymmetric key verification, and the Protected Report section is only unlocked after successful verification.
-            </p>
-            <div class="modal-actions">
-                <button id="closeWelcomeModal">Got it</button>
-                <button class="button secondary" id="hideWelcomeForever">Do not show again</button>
-            </div>
-        </div>
+<header>
+    <div class="topbar">
+        <div class="brand">Task Management App</div>
+        <button class="menu-toggle" id="menuToggle" aria-label="Toggle navigation">☰</button>
     </div>
 
-    <script>
-        const menuToggle = document.getElementById("menuToggle");
-        const siteNav = document.getElementById("siteNav");
+    <nav id="siteNav">
+        <div class="nav-left">
+            <a href="{% url 'home' %}">Home</a>
+            <span class="nav-separator">|</span>
 
-        if (menuToggle && siteNav) {
-            menuToggle.addEventListener("click", function () {
-                siteNav.classList.toggle("open");
-            });
-        }
+            <a href="{% url 'organization-list' %}">Organizations</a>
+            <span class="nav-separator">|</span>
 
-        const welcomeModal = document.getElementById("welcomeModal");
-        const closeWelcomeModal = document.getElementById("closeWelcomeModal");
-        const hideWelcomeForever = document.getElementById("hideWelcomeForever");
+            <a href="{% url 'project-list' %}">Projects</a>
+            <span class="nav-separator">|</span>
 
-        if (welcomeModal && !localStorage.getItem("taskAppWelcomeDismissed")) {
-            window.addEventListener("load", function () {
-                welcomeModal.classList.add("show");
-            });
-        }
+            <a href="{% url 'taskstatus-list' %}">Task Statuses</a>
+            <span class="nav-separator">|</span>
 
-        if (closeWelcomeModal) {
-            closeWelcomeModal.addEventListener("click", function () {
-                welcomeModal.classList.remove("show");
-            });
-        }
+            <a href="{% url 'task-list' %}">Tasks</a>
+        </div>
 
-        if (hideWelcomeForever) {
-            hideWelcomeForever.addEventListener("click", function () {
-                localStorage.setItem("taskAppWelcomeDismissed", "true");
-                welcomeModal.classList.remove("show");
-            });
-        }
-    </script>
+        <div class="nav-right">
+            <a href="{% url 'secure-access' %}">Secure Access</a>
+            <span class="nav-separator">|</span>
+
+            <a href="{% url 'protected-report' %}">Protected Report</a>
+            <span class="nav-separator">|</span>
+
+            <a href="/admin/">Admin</a>
+        </div>
+    </nav>
+</header>
+
+<main>
+    {% if messages %}
+        {% for message in messages %}
+            <div class="message {{ message.tags }}">{{ message }}</div>
+        {% endfor %}
+    {% endif %}
+
+    {% block content %}{% endblock %}
+</main>
+
+<div class="modal-backdrop" id="welcomeModal">
+    <div class="modal-card">
+        <h2>Welcome to the Task Management App</h2>
+        <p>
+            This app allows you to manage organizations, projects, task statuses, and tasks through a user-friendly interface.
+        </p>
+        <p>
+            The Secure Access section demonstrates asymmetric key verification, and the Protected Report section is unlocked only after successful verification.
+        </p>
+
+        <div class="modal-actions">
+            <button id="closeWelcomeModal">Got it</button>
+            <button class="secondary" id="hideWelcomeForever">Do not show again</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    const menuToggle = document.getElementById("menuToggle");
+    const siteNav = document.getElementById("siteNav");
+
+    if (menuToggle && siteNav) {
+        menuToggle.addEventListener("click", () => {
+            siteNav.classList.toggle("open");
+        });
+    }
+
+    const modal = document.getElementById("welcomeModal");
+    const closeBtn = document.getElementById("closeWelcomeModal");
+    const hideBtn = document.getElementById("hideWelcomeForever");
+
+    if (modal && !localStorage.getItem("welcomeDismissed")) {
+        window.addEventListener("load", () => {
+            modal.classList.add("show");
+        });
+    }
+
+    if (closeBtn) {
+        closeBtn.addEventListener("click", () => {
+            modal.classList.remove("show");
+        });
+    }
+
+    if (hideBtn) {
+        hideBtn.addEventListener("click", () => {
+            localStorage.setItem("welcomeDismissed", "true");
+            modal.classList.remove("show");
+        });
+    }
+</script>
+
 </body>
 </html>
