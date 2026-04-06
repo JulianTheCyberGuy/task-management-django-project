@@ -1,12 +1,43 @@
 {% extends "task_app/base.html" %}
 
 {% block content %}
-<!-- Organization create/edit form -->
 <h2>{% if object %}Edit Organization{% else %}Add Organization{% endif %}</h2>
+<p class="muted form-intro-text">
+    Create or update an organization that can own projects within the task management system.
+</p>
 
-<form method="post">
+<form method="post" class="app-form-card compact-form-card">
     {% csrf_token %}
-    {{ form.as_p }}
-    <button type="submit">Save</button>
+
+    {% if form.non_field_errors %}
+        <div class="message error">{{ form.non_field_errors }}</div>
+    {% endif %}
+
+    <div class="form-grid-single">
+        <div class="form-field full-width-field{% if form.name.errors %} has-errors{% endif %}">
+            <label for="{{ form.name.id_for_label }}">Organization Name</label>
+            {{ form.name }}
+            <div class="form-help-text">Enter the official name of the organization.</div>
+            {% if form.name.errors %}<div class="field-error">{{ form.name.errors|striptags }}</div>{% endif %}
+        </div>
+
+        <div class="form-field full-width-field{% if form.contact_email.errors %} has-errors{% endif %}">
+            <label for="{{ form.contact_email.id_for_label }}">Contact Email</label>
+            {{ form.contact_email }}
+            <div class="form-help-text">Optional. Add a primary email address for this organization.</div>
+            {% if form.contact_email.errors %}<div class="field-error">{{ form.contact_email.errors|striptags }}</div>{% endif %}
+        </div>
+
+        <div class="form-field full-width-field{% if form.phone_number.errors %} has-errors{% endif %}">
+            <label for="{{ form.phone_number.id_for_label }}">Phone Number</label>
+            {{ form.phone_number }}
+            <div class="form-help-text">Optional. Add a main phone number for quick reference.</div>
+            {% if form.phone_number.errors %}<div class="field-error">{{ form.phone_number.errors|striptags }}</div>{% endif %}
+        </div>
+    </div>
+
+    <div class="form-actions-row">
+        <button type="submit"><span class="button-text">Save Organization</span></button>
+    </div>
 </form>
 {% endblock %}

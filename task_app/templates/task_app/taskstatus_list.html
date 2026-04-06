@@ -1,19 +1,56 @@
 {% extends "task_app/base.html" %}
 
 {% block content %}
-<!-- Task status listing -->
-<h2>Task Statuses</h2>
-<a class="button" href="{% url 'taskstatus-add' %}">Add Task Status</a>
-<hr>
-
-{% for status in statuses %}
-    <div class="card">
-        <h3>{{ status.name }}</h3>
-        <p>{{ status.description|default:"No description" }}</p>
-        <a href="{% url 'taskstatus-detail' status.pk %}">View</a> |
-        <a href="{% url 'taskstatus-edit' status.pk %}">Edit</a>
+<div class="page-header">
+    <div class="page-header-copy">
+        <h2 class="page-title">Task Statuses</h2>
+        <p class="page-subtitle">
+            Define the stages your team uses to track work, from pending through completion.
+        </p>
     </div>
-{% empty %}
-    <p>No statuses found.</p>
-{% endfor %}
+    <a class="button" href="{% url 'taskstatus-add' %}">Add Task Status</a>
+</div>
+
+{% if statuses %}
+    <div class="entity-grid">
+        {% for status in statuses %}
+            <article class="entity-card">
+                <div class="entity-card-header">
+                    <h3 class="entity-card-title">{{ status.name }}</h3>
+                    <span class="badge">Status</span>
+                </div>
+
+                <div class="entity-card-body">
+                    <div class="entity-meta-list">
+                        <div class="entity-meta-item">
+                            <span class="entity-meta-label">Description</span>
+                            <span class="entity-meta-value">{{ status.description|default:"No description provided." }}</span>
+                        </div>
+
+                        <div class="entity-meta-item">
+                            <span class="entity-meta-label">Sort Order</span>
+                            <span class="entity-meta-value">{{ status.sort_order }}</span>
+                        </div>
+
+                        <div class="entity-meta-item">
+                            <span class="entity-meta-label">Tasks Using This Status</span>
+                            <span class="entity-meta-value">{{ status.tasks.count }} task{{ status.tasks.count|pluralize }}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="entity-card-actions">
+                    <a class="button" href="{% url 'taskstatus-detail' status.pk %}">View Details</a>
+                    <a class="text-link-action" href="{% url 'taskstatus-edit' status.pk %}">Edit</a>
+                </div>
+            </article>
+        {% endfor %}
+    </div>
+{% else %}
+    <div class="empty-state-card">
+        <h3>No task statuses yet</h3>
+        <p>Create a status so tasks can move through clear workflow stages.</p>
+        <a class="button" href="{% url 'taskstatus-add' %}">Create Task Status</a>
+    </div>
+{% endif %}
 {% endblock %}

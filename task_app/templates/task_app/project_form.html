@@ -1,12 +1,66 @@
 {% extends "task_app/base.html" %}
 
 {% block content %}
-<!-- Project create/edit form -->
 <h2>{% if object %}Edit Project{% else %}Add Project{% endif %}</h2>
+<p class="muted form-intro-text">Create or update a project. The active setting controls whether this project should still be treated as currently in use.</p>
 
-<form method="post">
+<form method="post" class="app-form-card compact-form-card">
     {% csrf_token %}
-    {{ form.as_p }}
-    <button type="submit">Save</button>
+
+    {% if form.non_field_errors %}
+        <div class="message error">{{ form.non_field_errors }}</div>
+    {% endif %}
+
+    <div class="form-grid-two">
+        <div class="form-field full-width-field{% if form.organization.errors %} has-errors{% endif %}">
+            <label for="{{ form.organization.id_for_label }}">Organization</label>
+            {{ form.organization }}
+            <div class="form-help-text">Choose the organization this project belongs to.</div>
+            {% if form.organization.errors %}<div class="field-error">{{ form.organization.errors|striptags }}</div>{% endif %}
+        </div>
+
+        <div class="form-field full-width-field{% if form.name.errors %} has-errors{% endif %}">
+            <label for="{{ form.name.id_for_label }}">Project Name</label>
+            {{ form.name }}
+            <div class="form-help-text">Enter a clear project name that users will recognize quickly.</div>
+            {% if form.name.errors %}<div class="field-error">{{ form.name.errors|striptags }}</div>{% endif %}
+        </div>
+
+        <div class="form-field full-width-field{% if form.description.errors %} has-errors{% endif %}">
+            <label for="{{ form.description.id_for_label }}">Description</label>
+            {{ form.description }}
+            <div class="form-help-text">Optional. Add a short summary of the project scope or purpose.</div>
+            {% if form.description.errors %}<div class="field-error">{{ form.description.errors|striptags }}</div>{% endif %}
+        </div>
+
+        <div class="form-field{% if form.start_date.errors %} has-errors{% endif %}">
+            <label for="{{ form.start_date.id_for_label }}">Start Date</label>
+            {{ form.start_date }}
+            <div class="form-help-text">Optional. Set the date work is expected to begin.</div>
+            {% if form.start_date.errors %}<div class="field-error">{{ form.start_date.errors|striptags }}</div>{% endif %}
+        </div>
+
+        <div class="form-field{% if form.end_date.errors %} has-errors{% endif %}">
+            <label for="{{ form.end_date.id_for_label }}">End Date</label>
+            {{ form.end_date }}
+            <div class="form-help-text">Optional. Set the expected completion date for the project.</div>
+            {% if form.end_date.errors %}<div class="field-error">{{ form.end_date.errors|striptags }}</div>{% endif %}
+        </div>
+    </div>
+
+    <div class="form-checkbox-row compact-checkbox-row">
+        <div class="form-checkbox-copy">
+            <label for="{{ form.is_active.id_for_label }}" class="checkbox-main-label">Is active?</label>
+            <small class="checkbox-help-text">Leave this checked if the project is still active and should continue appearing as a current working project.</small>
+            {% if form.is_active.errors %}<div class="field-error">{{ form.is_active.errors|striptags }}</div>{% endif %}
+        </div>
+        <div class="form-checkbox-control">
+            {{ form.is_active }}
+        </div>
+    </div>
+
+    <div class="form-actions-row">
+        <button type="submit"><span class="button-text">Save Project</span></button>
+    </div>
 </form>
 {% endblock %}

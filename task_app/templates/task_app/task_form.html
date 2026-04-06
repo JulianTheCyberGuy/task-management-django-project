@@ -1,12 +1,82 @@
 {% extends "task_app/base.html" %}
 
 {% block content %}
-<!-- Task create/edit form -->
 <h2>{% if object %}Edit Task{% else %}Add Task{% endif %}</h2>
+<p class="muted form-intro-text">
+    Create or update a task and connect it to the correct project, status, due date, and assignee.
+</p>
 
-<form method="post">
+<form method="post" class="app-form-card compact-form-card">
     {% csrf_token %}
-    {{ form.as_p }}
-    <button type="submit">Save</button>
+
+    {% if form.non_field_errors %}
+        <div class="message error">{{ form.non_field_errors }}</div>
+    {% endif %}
+
+    <div class="form-grid-two">
+        <div class="form-field full-width-field{% if form.project.errors %} has-errors{% endif %}">
+            <label for="{{ form.project.id_for_label }}">Project</label>
+            {{ form.project }}
+            <div class="form-help-text">Select the project this task belongs to.</div>
+            {% if form.project.errors %}<div class="field-error">{{ form.project.errors|striptags }}</div>{% endif %}
+        </div>
+
+        <div class="form-field{% if form.status.errors %} has-errors{% endif %}">
+            <label for="{{ form.status.id_for_label }}">Status</label>
+            {{ form.status }}
+            <div class="form-help-text">Set the current workflow stage for this task.</div>
+            {% if form.status.errors %}<div class="field-error">{{ form.status.errors|striptags }}</div>{% endif %}
+        </div>
+
+        <div class="form-field{% if form.priority.errors %} has-errors{% endif %}">
+            <label for="{{ form.priority.id_for_label }}">Priority</label>
+            {{ form.priority }}
+            <div class="form-help-text">Choose low, medium, or high priority.</div>
+            {% if form.priority.errors %}<div class="field-error">{{ form.priority.errors|striptags }}</div>{% endif %}
+        </div>
+
+        <div class="form-field full-width-field{% if form.title.errors %} has-errors{% endif %}">
+            <label for="{{ form.title.id_for_label }}">Task Title</label>
+            {{ form.title }}
+            <div class="form-help-text">Use a short, descriptive task name.</div>
+            {% if form.title.errors %}<div class="field-error">{{ form.title.errors|striptags }}</div>{% endif %}
+        </div>
+
+        <div class="form-field full-width-field{% if form.description.errors %} has-errors{% endif %}">
+            <label for="{{ form.description.id_for_label }}">Description</label>
+            {{ form.description }}
+            <div class="form-help-text">Optional. Add extra details, context, or expectations for this task.</div>
+            {% if form.description.errors %}<div class="field-error">{{ form.description.errors|striptags }}</div>{% endif %}
+        </div>
+
+        <div class="form-field{% if form.assigned_to.errors %} has-errors{% endif %}">
+            <label for="{{ form.assigned_to.id_for_label }}">Assigned To</label>
+            {{ form.assigned_to }}
+            <div class="form-help-text">Optional. Assign this task to a user if needed.</div>
+            {% if form.assigned_to.errors %}<div class="field-error">{{ form.assigned_to.errors|striptags }}</div>{% endif %}
+        </div>
+
+        <div class="form-field{% if form.due_date.errors %} has-errors{% endif %}">
+            <label for="{{ form.due_date.id_for_label }}">Due Date</label>
+            {{ form.due_date }}
+            <div class="form-help-text">Optional. Tasks with due dates will appear on the calendar.</div>
+            {% if form.due_date.errors %}<div class="field-error">{{ form.due_date.errors|striptags }}</div>{% endif %}
+        </div>
+    </div>
+
+    <div class="form-checkbox-row compact-checkbox-row">
+        <div class="form-checkbox-copy">
+            <label for="{{ form.is_completed.id_for_label }}" class="checkbox-main-label">Mark as completed?</label>
+            <small class="checkbox-help-text">Check this only when the task has been finished and should appear as completed in the app and calendar.</small>
+            {% if form.is_completed.errors %}<div class="field-error">{{ form.is_completed.errors|striptags }}</div>{% endif %}
+        </div>
+        <div class="form-checkbox-control">
+            {{ form.is_completed }}
+        </div>
+    </div>
+
+    <div class="form-actions-row">
+        <button type="submit"><span class="button-text">Save Task</span></button>
+    </div>
 </form>
 {% endblock %}

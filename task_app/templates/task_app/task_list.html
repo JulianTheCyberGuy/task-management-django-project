@@ -1,27 +1,66 @@
 {% extends "task_app/base.html" %}
 
 {% block content %}
-<!-- Task listing -->
-<h2>Tasks</h2>
-<p class="muted">Tasks are ordered by status, then due date, then title.</p>
-<a class="button" href="{% url 'task-add' %}">Add Task</a>
-<hr>
-
-{% for task in tasks %}
-    <div class="card">
-        <h3>{{ task.title }}</h3>
-        <p><strong>Project:</strong> {{ task.project.name }}</p>
-        <p><strong>Status:</strong> {{ task.status.name }}</p>
-        <p><strong>Priority:</strong> {{ task.get_priority_display }}</p>
-        <p><strong>Due Date:</strong> {{ task.due_date|default:"N/A" }}</p>
-        <p><strong>Completed:</strong> {{ task.is_completed }}</p>
-
-        <div class="inline-links">
-            <a href="{% url 'task-detail' task.pk %}">View</a>
-            <a href="{% url 'task-edit' task.pk %}">Edit</a>
-        </div>
+<div class="page-header">
+    <div class="page-header-copy">
+        <h2 class="page-title">Tasks</h2>
+        <p class="page-subtitle">
+            Review all tasks in the system. Tasks are organized by status, due date, and title.
+        </p>
     </div>
-{% empty %}
-    <p>No tasks found.</p>
-{% endfor %}
+    <div class="page-toolbar">
+        <a class="button" href="{% url 'task-add' %}">Add Task</a>
+        <a class="button" href="{% url 'calendar-month' %}">Open Calendar</a>
+    </div>
+</div>
+
+{% if tasks %}
+    <div class="entity-grid">
+        {% for task in tasks %}
+            <article class="entity-card">
+                <div class="entity-card-header">
+                    <h3 class="entity-card-title">{{ task.title }}</h3>
+                    <span class="priority-pill priority-{{ task.priority|lower }}">{{ task.get_priority_display }}</span>
+                </div>
+
+                <div class="entity-card-body">
+                    <div class="pill-row">
+                        <span class="status-pill">{{ task.status.name }}</span>
+                        <span class="boolean-pill {% if task.is_completed %}true{% else %}false{% endif %}">
+                            {% if task.is_completed %}Completed{% else %}Open{% endif %}
+                        </span>
+                    </div>
+
+                    <div class="entity-meta-list">
+                        <div class="entity-meta-item">
+                            <span class="entity-meta-label">Project</span>
+                            <span class="entity-meta-value">{{ task.project.name }}</span>
+                        </div>
+
+                        <div class="entity-meta-item">
+                            <span class="entity-meta-label">Due Date</span>
+                            <span class="entity-meta-value">{{ task.due_date|default:"Not scheduled" }}</span>
+                        </div>
+
+                        <div class="entity-meta-item">
+                            <span class="entity-meta-label">Assigned To</span>
+                            <span class="entity-meta-value">{{ task.assigned_to|default:"Unassigned" }}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="entity-card-actions">
+                    <a class="button" href="{% url 'task-detail' task.pk %}">View Details</a>
+                    <a class="text-link-action" href="{% url 'task-edit' task.pk %}">Edit</a>
+                </div>
+            </article>
+        {% endfor %}
+    </div>
+{% else %}
+    <div class="empty-state-card">
+        <h3>No tasks yet</h3>
+        <p>Create a task to begin tracking work across your projects.</p>
+        <a class="button" href="{% url 'task-add' %}">Create Task</a>
+    </div>
+{% endif %}
 {% endblock %}

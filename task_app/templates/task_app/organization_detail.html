@@ -1,21 +1,66 @@
 {% extends "task_app/base.html" %}
 
 {% block content %}
-<!-- Organization detail view -->
-<h2>{{ organization.name }}</h2>
-<p><strong>Contact Email:</strong> {{ organization.contact_email|default:"N/A" }}</p>
-<p><strong>Phone Number:</strong> {{ organization.phone_number|default:"N/A" }}</p>
-<p><strong>Created:</strong> {{ organization.created_at }}</p>
+<div class="detail-shell">
+    <div class="detail-card">
+        <div class="detail-topbar">
+            <div class="detail-title-group">
+                <h2 class="detail-title">{{ organization.name }}</h2>
+                <p class="detail-subtitle">
+                    Review organization details and the projects connected to this organization.
+                </p>
+            </div>
 
-<!-- Related projects -->
-<h3>Projects</h3>
-{% for project in organization.projects.all %}
-    <div class="card">
-        <strong>{{ project.name }}</strong>
+            <div class="page-toolbar">
+                <a class="button" href="{% url 'organization-edit' organization.pk %}">Edit Organization</a>
+                <a class="text-link-action" href="{% url 'organization-list' %}">Back to Organizations</a>
+            </div>
+        </div>
+
+        <div class="detail-grid">
+            <div class="detail-item">
+                <span class="detail-label">Contact Email</span>
+                <div class="detail-value">{{ organization.contact_email|default:"Not provided" }}</div>
+            </div>
+
+            <div class="detail-item">
+                <span class="detail-label">Phone Number</span>
+                <div class="detail-value">{{ organization.phone_number|default:"Not provided" }}</div>
+            </div>
+
+            <div class="detail-item full-width">
+                <span class="detail-label">Created</span>
+                <div class="detail-value">{{ organization.created_at }}</div>
+            </div>
+        </div>
+
+        <div class="related-section">
+            <h3 class="related-section-title">Projects</h3>
+
+            {% if organization.projects.all %}
+                <div class="related-stack">
+                    {% for project in organization.projects.all %}
+                        <div class="related-card">
+                            <h4 class="related-card-title">{{ project.name }}</h4>
+                            <p class="related-card-copy">
+                                {{ project.description|default:"No description provided." }}
+                            </p>
+                            <div class="page-toolbar">
+                                <span class="boolean-pill {% if project.is_active %}true{% else %}false{% endif %}">
+                                    {% if project.is_active %}Active{% else %}Inactive{% endif %}
+                                </span>
+                                <a class="text-link-action" href="{% url 'project-detail' project.pk %}">View Project</a>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div class="empty-state-card">
+                    <h3>No projects yet</h3>
+                    <p>This organization does not have any projects connected to it yet.</p>
+                </div>
+            {% endif %}
+        </div>
     </div>
-{% empty %}
-    <p>No projects for this organization yet.</p>
-{% endfor %}
-
-<a class="button" href="{% url 'organization-edit' organization.pk %}">Edit Organization</a>
+</div>
 {% endblock %}

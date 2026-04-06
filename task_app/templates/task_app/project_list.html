@@ -1,20 +1,58 @@
 {% extends "task_app/base.html" %}
 
 {% block content %}
-<!-- Project listing -->
-<h2>Projects</h2>
-<a class="button" href="{% url 'project-add' %}">Add Project</a>
-<hr>
-
-{% for project in projects %}
-    <div class="card">
-        <h3>{{ project.name }}</h3>
-        <p><strong>Organization:</strong> {{ project.organization.name }}</p>
-        <p><strong>Active:</strong> {{ project.is_active }}</p>
-        <a href="{% url 'project-detail' project.pk %}">View</a> |
-        <a href="{% url 'project-edit' project.pk %}">Edit</a>
+<div class="page-header">
+    <div class="page-header-copy">
+        <h2 class="page-title">Projects</h2>
+        <p class="page-subtitle">
+            Manage the projects in your system and quickly see which organization they belong to and whether they are active.
+        </p>
     </div>
-{% empty %}
-    <p>No projects found.</p>
-{% endfor %}
+    <a class="button" href="{% url 'project-add' %}">Add Project</a>
+</div>
+
+{% if projects %}
+    <div class="entity-grid">
+        {% for project in projects %}
+            <article class="entity-card">
+                <div class="entity-card-header">
+                    <h3 class="entity-card-title">{{ project.name }}</h3>
+                    <span class="boolean-pill {% if project.is_active %}true{% else %}false{% endif %}">
+                        {% if project.is_active %}Active{% else %}Inactive{% endif %}
+                    </span>
+                </div>
+
+                <div class="entity-card-body">
+                    <div class="entity-meta-list">
+                        <div class="entity-meta-item">
+                            <span class="entity-meta-label">Organization</span>
+                            <span class="entity-meta-value">{{ project.organization.name }}</span>
+                        </div>
+
+                        <div class="entity-meta-item">
+                            <span class="entity-meta-label">Description</span>
+                            <span class="entity-meta-value">{{ project.description|default:"No description provided." }}</span>
+                        </div>
+
+                        <div class="entity-meta-item">
+                            <span class="entity-meta-label">Tasks</span>
+                            <span class="entity-meta-value">{{ project.tasks.count }} task{{ project.tasks.count|pluralize }}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="entity-card-actions">
+                    <a class="button" href="{% url 'project-detail' project.pk %}">View Details</a>
+                    <a class="text-link-action" href="{% url 'project-edit' project.pk %}">Edit</a>
+                </div>
+            </article>
+        {% endfor %}
+    </div>
+{% else %}
+    <div class="empty-state-card">
+        <h3>No projects yet</h3>
+        <p>Create a project to begin organizing tasks under an organization.</p>
+        <a class="button" href="{% url 'project-add' %}">Create Project</a>
+    </div>
+{% endif %}
 {% endblock %}

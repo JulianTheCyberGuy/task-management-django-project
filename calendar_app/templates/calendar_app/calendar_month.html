@@ -1,0 +1,114 @@
+{% extends "task_app/base.html" %}
+
+{% block content %}
+<div class="calendar-shell compact-calendar-shell">
+    <div class="calendar-topbar compact-calendar-topbar">
+        <div class="calendar-nav-left">
+            <a class="calendar-nav-button" href="?view={{ view_mode }}&month={{ previous_month }}&year={{ previous_year }}&day={{ previous_day }}" aria-label="Previous">‹</a>
+            <a class="calendar-nav-button" href="?view={{ view_mode }}&month={{ next_month }}&year={{ next_year }}&day={{ next_day }}" aria-label="Next">›</a>
+            <a class="calendar-today-button" href="?view={{ view_mode }}&month={{ current_month }}&year={{ current_year }}&day={{ current_day }}">Today</a>
+        </div>
+
+        <div class="calendar-heading-wrap">
+            <h2 class="calendar-heading">{{ calendar_heading }}</h2>
+            <p class="calendar-heading-subtext">{{ task_total }} scheduled task{{ task_total|pluralize }}</p>
+        </div>
+
+        <div class="calendar-view-toggle" aria-label="Calendar views">
+            <a href="?view=month&month={{ selected_month }}&year={{ selected_year }}&day=1" class="{% if view_mode == 'month' %}is-active{% endif %}">month</a>
+            <a href="?view=week&month={{ selected_month }}&year={{ selected_year }}&day={{ selected_day }}" class="{% if view_mode == 'week' %}is-active{% endif %}">week</a>
+            <a href="?view=day&month={{ selected_month }}&year={{ selected_year }}&day={{ selected_day }}" class="{% if view_mode == 'day' %}is-active{% endif %}">day</a>
+            <a href="?view=list&month={{ selected_month }}&year={{ selected_year }}&day=1" class="{% if view_mode == 'list' %}is-active{% endif %}">list</a>
+        </div>
+    </div>
+
+    {% if view_mode == "month" %}
+        <div class="calendar-board compact-calendar-board">
+            <div class="calendar-weekday-row">
+                {% for weekday in weekdays %}
+                    <div class="calendar-weekday-cell">{{ weekday }}</div>
+                {% endfor %}
+            </div>
+
+            <div class="calendar-month-grid compact-month-grid">
+                {% for week in month_weeks %}
+                    {% for day in week %}
+                        <section class="calendar-day-card compact-day-card{% if not day.in_current_month %} is-muted{% endif %}{% if day.is_today %} is-today{% endif %}">
+                            <div class="calendar-day-number">{{ day.day_number }}</div>
+
+                            <div class="calendar-events-list compact-events-list">
+                                {% for task in day.tasks|slice:":3" %}
+                                    <a class="calendar-event-card priority-{{ task.priority|lower }}{% if task.is_completed %} is-complete{% endif %}" href="{% url 'task-detail' task.pk %}">
+                                        <span class="calendar-event-title">{{ task.title }}</span>
+                                    </a>
+                                {% endfor %}
+
+                                {% if day.tasks|length > 3 %}
+                                    <div class="calendar-more-events">+{{ day.tasks|length|add:"-3" }} more</div>
+                                {% endif %}
+                            </div>
+                        </section>
+                    {% endfor %}
+                {% endfor %}
+            </div>
+        </div>
+    {% elif view_mode == "week" %}
+        <div class="calendar-week-view">
+            {% for day in week_days %}
+                <section class="calendar-week-column{% if not day.in_current_month %} is-muted{% endif %}{% if day.is_today %} is-today{% endif %}">
+                    <div class="calendar-week-column-header">
+                        <div class="calendar-weekday-label">{{ day.label }}</div>
+                        <div class="calendar-weekday-number">{{ day.day_number }}</div>
+                    </div>
+
+                    <div class="calendar-week-column-body">
+                        {% for task in day.tasks %}
+                            <a class="calendar-event-card priority-{{ task.priority|lower }}{% if task.is_completed %} is-complete{% endif %}" href="{% url 'task-detail' task.pk %}">
+                                <span class="calendar-event-title">{{ task.title }}</span>
+                                <span class="calendar-event-meta">{{ task.project.name }}</span>
+                            </a>
+                        {% empty %}
+                            <p class="calendar-empty-note">No tasks scheduled.</p>
+                        {% endfor %}
+                    </div>
+                </section>
+            {% endfor %}
+        </div>
+    {% elif view_mode == "day" %}
+        <div class="calendar-detail-view">
+            <div class="calendar-detail-card">
+                <h3 class="calendar-detail-title">{{ selected_date|date:"l, F j, Y" }}</h3>
+                {% for task in day_tasks %}
+                    <a class="calendar-event-card detail-event-card priority-{{ task.priority|lower }}{% if task.is_completed %} is-complete{% endif %}" href="{% url 'task-detail' task.pk %}">
+                        <span class="calendar-event-title">{{ task.title }}</span>
+                        <span class="calendar-event-meta">{{ task.project.name }}</span>
+                        <span class="calendar-event-meta">{{ task.status.name }}{% if task.assigned_to %} • {{ task.assigned_to }}{% endif %}</span>
+                    </a>
+                {% empty %}
+                    <p class="calendar-empty-note">No tasks scheduled for this day.</p>
+                {% endfor %}
+            </div>
+        </div>
+    {% else %}
+        <div class="calendar-detail-view">
+            <div class="calendar-detail-card">
+                <h3 class="calendar-detail-title">Tasks for {{ selected_date|date:"F Y" }}</h3>
+                {% for group in list_groups %}
+                    <div class="calendar-list-group">
+                        <h4 class="calendar-list-date">{{ group.date|date:"l, F j" }}</h4>
+                        {% for task in group.tasks %}
+                            <a class="calendar-event-card detail-event-card priority-{{ task.priority|lower }}{% if task.is_completed %} is-complete{% endif %}" href="{% url 'task-detail' task.pk %}">
+                                <span class="calendar-event-title">{{ task.title }}</span>
+                                <span class="calendar-event-meta">{{ task.project.name }}</span>
+                                <span class="calendar-event-meta">{{ task.status.name }}{% if task.assigned_to %} • {{ task.assigned_to }}{% endif %}</span>
+                            </a>
+                        {% endfor %}
+                    </div>
+                {% empty %}
+                    <p class="calendar-empty-note">No tasks found for this month.</p>
+                {% endfor %}
+            </div>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

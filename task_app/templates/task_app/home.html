@@ -1,7 +1,6 @@
 {% extends "task_app/base.html" %}
 
 {% block content %}
-<!-- Dashboard summary -->
 <h2>Dashboard</h2>
 <p class="muted">
     This dashboard provides a quick overview of the task management application and recent activity.
@@ -34,7 +33,6 @@
     </div>
 </div>
 
-<!-- Status breakdown -->
 <div class="section">
     <h3>Status Summary</h3>
     {% if status_summary %}
@@ -54,7 +52,6 @@
     {% endif %}
 </div>
 
-<!-- Recently added tasks -->
 <div class="section">
     <h3>Recent Tasks</h3>
     {% if recent_tasks %}
@@ -73,11 +70,11 @@
     {% endif %}
 </div>
 
-<!-- Quick actions -->
 <div class="section inline-links">
     <a class="button" href="{% url 'organization-add' %}">Add Organization</a>
     <a class="button" href="{% url 'project-add' %}">Add Project</a>
     <a class="button" href="{% url 'taskstatus-add' %}">Add Status</a>
     <a class="button" href="{% url 'task-add' %}">Add Task</a>
+    <a class="button" href="{% url 'calendar-month' %}">View Calendar</a>
 </div>
 {% endblock %}

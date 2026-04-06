@@ -1,12 +1,43 @@
 {% extends "task_app/base.html" %}
 
 {% block content %}
-<!-- Task status create/edit form -->
 <h2>{% if object %}Edit Task Status{% else %}Add Task Status{% endif %}</h2>
+<p class="muted form-intro-text">
+    Create or update a task status to help organize work stages such as pending, in progress, or completed.
+</p>
 
-<form method="post">
+<form method="post" class="app-form-card compact-form-card">
     {% csrf_token %}
-    {{ form.as_p }}
-    <button type="submit">Save</button>
+
+    {% if form.non_field_errors %}
+        <div class="message error">{{ form.non_field_errors }}</div>
+    {% endif %}
+
+    <div class="form-grid-single">
+        <div class="form-field full-width-field{% if form.name.errors %} has-errors{% endif %}">
+            <label for="{{ form.name.id_for_label }}">Status Name</label>
+            {{ form.name }}
+            <div class="form-help-text">Choose a clear name that team members will immediately understand.</div>
+            {% if form.name.errors %}<div class="field-error">{{ form.name.errors|striptags }}</div>{% endif %}
+        </div>
+
+        <div class="form-field full-width-field{% if form.description.errors %} has-errors{% endif %}">
+            <label for="{{ form.description.id_for_label }}">Description</label>
+            {{ form.description }}
+            <div class="form-help-text">Optional. Briefly explain when this status should be used.</div>
+            {% if form.description.errors %}<div class="field-error">{{ form.description.errors|striptags }}</div>{% endif %}
+        </div>
+
+        <div class="form-field full-width-field{% if form.sort_order.errors %} has-errors{% endif %}">
+            <label for="{{ form.sort_order.id_for_label }}">Sort Order</label>
+            {{ form.sort_order }}
+            <div class="form-help-text">Lower numbers appear first when task statuses are listed.</div>
+            {% if form.sort_order.errors %}<div class="field-error">{{ form.sort_order.errors|striptags }}</div>{% endif %}
+        </div>
+    </div>
+
+    <div class="form-actions-row">
+        <button type="submit"><span class="button-text">Save Task Status</span></button>
+    </div>
 </form>
 {% endblock %}

@@ -1,20 +1,56 @@
 {% extends "task_app/base.html" %}
 
 {% block content %}
-<!-- Organization listing -->
-<h2>Organizations</h2>
-<a class="button" href="{% url 'organization-add' %}">Add Organization</a>
-<hr>
-
-{% for organization in organizations %}
-    <div class="card">
-        <h3>{{ organization.name }}</h3>
-        <p>Email: {{ organization.contact_email|default:"N/A" }}</p>
-        <p>Phone: {{ organization.phone_number|default:"N/A" }}</p>
-        <a href="{% url 'organization-detail' organization.pk %}">View</a> |
-        <a href="{% url 'organization-edit' organization.pk %}">Edit</a>
+<div class="page-header">
+    <div class="page-header-copy">
+        <h2 class="page-title">Organizations</h2>
+        <p class="page-subtitle">
+            View and manage the organizations that own projects in your task management system.
+        </p>
     </div>
-{% empty %}
-    <p>No organizations found.</p>
-{% endfor %}
+    <a class="button" href="{% url 'organization-add' %}">Add Organization</a>
+</div>
+
+{% if organizations %}
+    <div class="entity-grid">
+        {% for organization in organizations %}
+            <article class="entity-card">
+                <div class="entity-card-header">
+                    <h3 class="entity-card-title">{{ organization.name }}</h3>
+                    <span class="badge">Organization</span>
+                </div>
+
+                <div class="entity-card-body">
+                    <div class="entity-meta-list">
+                        <div class="entity-meta-item">
+                            <span class="entity-meta-label">Contact Email</span>
+                            <span class="entity-meta-value">{{ organization.contact_email|default:"Not provided" }}</span>
+                        </div>
+
+                        <div class="entity-meta-item">
+                            <span class="entity-meta-label">Phone Number</span>
+                            <span class="entity-meta-value">{{ organization.phone_number|default:"Not provided" }}</span>
+                        </div>
+
+                        <div class="entity-meta-item">
+                            <span class="entity-meta-label">Projects</span>
+                            <span class="entity-meta-value">{{ organization.projects.count }} project{{ organization.projects.count|pluralize }}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="entity-card-actions">
+                    <a class="button" href="{% url 'organization-detail' organization.pk %}">View Details</a>
+                    <a class="text-link-action" href="{% url 'organization-edit' organization.pk %}">Edit</a>
+                </div>
+            </article>
+        {% endfor %}
+    </div>
+{% else %}
+    <div class="empty-state-card">
+        <h3>No organizations yet</h3>
+        <p>Add your first organization to start grouping projects more effectively.</p>
+        <a class="button" href="{% url 'organization-add' %}">Create Organization</a>
+    </div>
+{% endif %}
 {% endblock %}

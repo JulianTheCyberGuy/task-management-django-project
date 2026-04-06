@@ -1,25 +1,67 @@
 {% extends "task_app/base.html" %}
 
 {% block content %}
-<!-- Task status detail view -->
-<h2>{{ status.name }}</h2>
-<p><strong>Description:</strong> {{ status.description|default:"No description" }}</p>
-<p><strong>Sort Order:</strong> {{ status.sort_order }}</p>
+<div class="detail-shell">
+    <div class="detail-card">
+        <div class="detail-topbar">
+            <div class="detail-title-group">
+                <h2 class="detail-title">{{ status.name }}</h2>
+                <p class="detail-subtitle">
+                    Review this status and see which tasks are currently using it.
+                </p>
+            </div>
 
-<!-- Tasks currently using this status -->
-<h3>Tasks with this Status</h3>
-{% for task in status.tasks.all %}
-    <div class="card">
-        <strong>{{ task.title }}</strong>
-        <p class="muted">
-            Project: {{ task.project.name }} |
-            Priority: {{ task.get_priority_display }} |
-            Completed: {{ task.is_completed }}
-        </p>
+            <div class="page-toolbar">
+                <a class="button" href="{% url 'taskstatus-edit' status.pk %}">Edit Task Status</a>
+                <a class="text-link-action" href="{% url 'taskstatus-list' %}">Back to Task Statuses</a>
+            </div>
+        </div>
+
+        <div class="detail-grid">
+            <div class="detail-item full-width">
+                <span class="detail-label">Description</span>
+                <div class="detail-value">{{ status.description|default:"No description provided." }}</div>
+            </div>
+
+            <div class="detail-item">
+                <span class="detail-label">Sort Order</span>
+                <div class="detail-value">{{ status.sort_order }}</div>
+            </div>
+
+            <div class="detail-item">
+                <span class="detail-label">Tasks Using This Status</span>
+                <div class="detail-value">{{ status.tasks.count }} task{{ status.tasks.count|pluralize }}</div>
+            </div>
+        </div>
+
+        <div class="related-section">
+            <h3 class="related-section-title">Tasks with This Status</h3>
+
+            {% if status.tasks.all %}
+                <div class="related-stack">
+                    {% for task in status.tasks.all %}
+                        <div class="related-card">
+                            <h4 class="related-card-title">{{ task.title }}</h4>
+                            <div class="pill-row" style="margin-bottom: 0.5rem;">
+                                <span class="priority-pill priority-{{ task.priority|lower }}">{{ task.get_priority_display }}</span>
+                                <span class="boolean-pill {% if task.is_completed %}true{% else %}false{% endif %}">
+                                    {% if task.is_completed %}Completed{% else %}Open{% endif %}
+                                </span>
+                            </div>
+                            <p class="related-card-copy">
+                                Project: {{ task.project.name }}{% if task.due_date %} • Due: {{ task.due_date }}{% endif %}
+                            </p>
+                            <a class="text-link-action" href="{% url 'task-detail' task.pk %}">View Task</a>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div class="empty-state-card">
+                    <h3>No tasks using this status</h3>
+                    <p>Once tasks are assigned this status, they will appear here.</p>
+                </div>
+            {% endif %}
+        </div>
     </div>
-{% empty %}
-    <p>No tasks are currently using this status.</p>
-{% endfor %}
-
-<a class="button" href="{% url 'taskstatus-edit' status.pk %}">Edit Task Status</a>
+</div>
 {% endblock %}
