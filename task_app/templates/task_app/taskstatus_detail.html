@@ -1,0 +1,25 @@
+{% extends "task_app/base.html" %}
+
+{% block content %}
+<!-- Task status detail view -->
+<h2>{{ status.name }}</h2>
+<p><strong>Description:</strong> {{ status.description|default:"No description" }}</p>
+<p><strong>Sort Order:</strong> {{ status.sort_order }}</p>
+
+<!-- Tasks currently using this status -->
+<h3>Tasks with this Status</h3>
+{% for task in status.tasks.all %}
+    <div class="card">
+        <strong>{{ task.title }}</strong>
+        <p class="muted">
+            Project: {{ task.project.name }} |
+            Priority: {{ task.get_priority_display }} |
+            Completed: {{ task.is_completed }}
+        </p>
+    </div>
+{% empty %}
+    <p>No tasks are currently using this status.</p>
+{% endfor %}
+
+<a class="button" href="{% url 'taskstatus-edit' status.pk %}">Edit Task Status</a>
+{% endblock %}

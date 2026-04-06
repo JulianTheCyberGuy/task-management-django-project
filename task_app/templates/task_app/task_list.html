@@ -1,6 +1,7 @@
 {% extends "task_app/base.html" %}
 
 {% block content %}
+<!-- Task listing -->
 <h2>Tasks</h2>
 <p class="muted">Tasks are ordered by status, then due date, then title.</p>
 <a class="button" href="{% url 'task-add' %}">Add Task</a>
@@ -14,6 +15,7 @@
         <p><strong>Priority:</strong> {{ task.get_priority_display }}</p>
         <p><strong>Due Date:</strong> {{ task.due_date|default:"N/A" }}</p>
         <p><strong>Completed:</strong> {{ task.is_completed }}</p>
+
         <div class="inline-links">
             <a href="{% url 'task-detail' task.pk %}">View</a>
             <a href="{% url 'task-edit' task.pk %}">Edit</a>

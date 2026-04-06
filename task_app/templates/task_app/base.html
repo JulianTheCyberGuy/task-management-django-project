@@ -6,6 +6,7 @@
     <title>Task Management App</title>
 
     <style>
+        /* Global layout and typography */
         body {
             font-family: Arial, sans-serif;
             margin: 0;
@@ -43,6 +44,7 @@
             cursor: pointer;
         }
 
+        /* Primary navigation */
         #siteNav {
             display: flex;
             align-items: center;
@@ -78,6 +80,7 @@
             color: rgba(255,255,255,0.6);
         }
 
+        /* Main content area */
         main {
             padding: 2rem;
             max-width: 1100px;
@@ -115,6 +118,7 @@
             background: #16306d;
         }
 
+        /* Reusable UI elements */
         .card {
             border: 1px solid #ddd;
             border-radius: 8px;
@@ -194,6 +198,7 @@
             border-bottom: 1px solid #eee;
         }
 
+        /* Flash messages */
         .message {
             padding: 0.75rem 1rem;
             border-radius: 6px;
@@ -210,6 +215,7 @@
             color: #8a1f1f;
         }
 
+        /* Welcome modal */
         .modal-backdrop {
             position: fixed;
             inset: 0;
@@ -265,6 +271,7 @@
             background: #4b5563;
         }
 
+        /* Responsive navigation and spacing */
         @media (max-width: 768px) {
             .menu-toggle {
                 display: inline-block;
@@ -317,101 +324,106 @@
 </head>
 <body>
 
-<header>
-    <div class="topbar">
-        <div class="brand">Task Management App</div>
-        <button class="menu-toggle" id="menuToggle" aria-label="Toggle navigation">☰</button>
+    <!-- Site header and navigation -->
+    <header>
+        <div class="topbar">
+            <div class="brand">Task Management App</div>
+            <button class="menu-toggle" id="menuToggle" aria-label="Toggle navigation">☰</button>
+        </div>
+
+        <nav id="siteNav">
+            <div class="nav-left">
+                <a href="{% url 'home' %}">Home</a>
+                <span class="nav-separator">|</span>
+
+                <a href="{% url 'organization-list' %}">Organizations</a>
+                <span class="nav-separator">|</span>
+
+                <a href="{% url 'project-list' %}">Projects</a>
+                <span class="nav-separator">|</span>
+
+                <a href="{% url 'taskstatus-list' %}">Task Statuses</a>
+                <span class="nav-separator">|</span>
+
+                <a href="{% url 'task-list' %}">Tasks</a>
+            </div>
+
+            <div class="nav-right">
+                <a href="{% url 'secure-access' %}">Secure Access</a>
+                <span class="nav-separator">|</span>
+
+                <a href="{% url 'protected-report' %}">Protected Report</a>
+                <span class="nav-separator">|</span>
+
+                <a href="/admin/">Admin</a>
+            </div>
+        </nav>
+    </header>
+
+    <!-- Main page content -->
+    <main>
+        {% if messages %}
+            {% for message in messages %}
+                <div class="message {{ message.tags }}">{{ message }}</div>
+            {% endfor %}
+        {% endif %}
+
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Intro modal shown on first visit -->
+    <div class="modal-backdrop" id="welcomeModal">
+        <div class="modal-card">
+            <h2>Welcome to the Task Management App</h2>
+            <p>
+                This app allows you to manage organizations, projects, task statuses, and tasks through a user-friendly interface.
+            </p>
+            <p>
+                The Secure Access section demonstrates asymmetric key verification, and the Protected Report section is unlocked only after successful verification.
+            </p>
+
+            <div class="modal-actions">
+                <button id="closeWelcomeModal">Got it</button>
+                <button class="secondary" id="hideWelcomeForever">Do not show again</button>
+            </div>
+        </div>
     </div>
 
-    <nav id="siteNav">
-        <div class="nav-left">
-            <a href="{% url 'home' %}">Home</a>
-            <span class="nav-separator">|</span>
+    <script>
+        // Mobile navigation toggle
+        const menuToggle = document.getElementById("menuToggle");
+        const siteNav = document.getElementById("siteNav");
 
-            <a href="{% url 'organization-list' %}">Organizations</a>
-            <span class="nav-separator">|</span>
+        if (menuToggle && siteNav) {
+            menuToggle.addEventListener("click", () => {
+                siteNav.classList.toggle("open");
+            });
+        }
 
-            <a href="{% url 'project-list' %}">Projects</a>
-            <span class="nav-separator">|</span>
+        // Welcome modal behavior
+        const modal = document.getElementById("welcomeModal");
+        const closeBtn = document.getElementById("closeWelcomeModal");
+        const hideBtn = document.getElementById("hideWelcomeForever");
 
-            <a href="{% url 'taskstatus-list' %}">Task Statuses</a>
-            <span class="nav-separator">|</span>
+        if (modal && !localStorage.getItem("welcomeDismissed")) {
+            window.addEventListener("load", () => {
+                modal.classList.add("show");
+            });
+        }
 
-            <a href="{% url 'task-list' %}">Tasks</a>
-        </div>
+        if (closeBtn) {
+            closeBtn.addEventListener("click", () => {
+                modal.classList.remove("show");
+            });
+        }
 
-        <div class="nav-right">
-            <a href="{% url 'secure-access' %}">Secure Access</a>
-            <span class="nav-separator">|</span>
-
-            <a href="{% url 'protected-report' %}">Protected Report</a>
-            <span class="nav-separator">|</span>
-
-            <a href="/admin/">Admin</a>
-        </div>
-    </nav>
-</header>
-
-<main>
-    {% if messages %}
-        {% for message in messages %}
-            <div class="message {{ message.tags }}">{{ message }}</div>
-        {% endfor %}
-    {% endif %}
-
-    {% block content %}{% endblock %}
-</main>
-
-<div class="modal-backdrop" id="welcomeModal">
-    <div class="modal-card">
-        <h2>Welcome to the Task Management App</h2>
-        <p>
-            This app allows you to manage organizations, projects, task statuses, and tasks through a user-friendly interface.
-        </p>
-        <p>
-            The Secure Access section demonstrates asymmetric key verification, and the Protected Report section is unlocked only after successful verification.
-        </p>
-
-        <div class="modal-actions">
-            <button id="closeWelcomeModal">Got it</button>
-            <button class="secondary" id="hideWelcomeForever">Do not show again</button>
-        </div>
-    </div>
-</div>
-
-<script>
-    const menuToggle = document.getElementById("menuToggle");
-    const siteNav = document.getElementById("siteNav");
-
-    if (menuToggle && siteNav) {
-        menuToggle.addEventListener("click", () => {
-            siteNav.classList.toggle("open");
-        });
-    }
-
-    const modal = document.getElementById("welcomeModal");
-    const closeBtn = document.getElementById("closeWelcomeModal");
-    const hideBtn = document.getElementById("hideWelcomeForever");
-
-    if (modal && !localStorage.getItem("welcomeDismissed")) {
-        window.addEventListener("load", () => {
-            modal.classList.add("show");
-        });
-    }
-
-    if (closeBtn) {
-        closeBtn.addEventListener("click", () => {
-            modal.classList.remove("show");
-        });
-    }
-
-    if (hideBtn) {
-        hideBtn.addEventListener("click", () => {
-            localStorage.setItem("welcomeDismissed", "true");
-            modal.classList.remove("show");
-        });
-    }
-</script>
+        if (hideBtn) {
+            hideBtn.addEventListener("click", () => {
+                localStorage.setItem("welcomeDismissed", "true");
+                modal.classList.remove("show");
+            });
+        }
+    </script>
 
 </body>
 </html>

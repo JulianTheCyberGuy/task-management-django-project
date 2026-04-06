@@ -2,20 +2,26 @@ from pathlib import Path
 import base64
 import random
 
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.asymmetric import padding
+from cryptography.hazmat.primitives.serialization import load_pem_public_key
 from django.contrib import messages
 from django.db.models import Count
 from django.shortcuts import redirect, render
 from django.urls import reverse_lazy
 from django.utils import timezone
-from django.views.generic import TemplateView, ListView, DetailView, CreateView, UpdateView
+from django.views.generic import (
+    CreateView,
+    DetailView,
+    ListView,
+    TemplateView,
+    UpdateView,
+)
 
-from cryptography.hazmat.primitives import hashes
-from cryptography.hazmat.primitives.asymmetric import padding
-from cryptography.hazmat.primitives.serialization import load_pem_public_key
-
-from .models import Organization, Project, TaskStatus, Task
+from .models import Organization, Project, Task, TaskStatus
 
 
+# Dashboard and summary views
 class HomePageView(TemplateView):
     template_name = "task_app/home.html"
 
@@ -28,10 +34,15 @@ class HomePageView(TemplateView):
         context["completed_task_count"] = Task.objects.filter(is_completed=True).count()
         context["incomplete_task_count"] = Task.objects.filter(is_completed=False).count()
         context["recent_tasks"] = Task.objects.select_related("project", "status").order_by("-id")[:5]
-        context["status_summary"] = TaskStatus.objects.annotate(task_total=Count("tasks")).order_by("sort_order", "name")
+        context["status_summary"] = (
+            TaskStatus.objects
+            .annotate(task_total=Count("tasks"))
+            .order_by("sort_order", "name")
+        )
         return context
 
 
+# Organization views
 class OrganizationListView(ListView):
     model = Organization
     template_name = "task_app/organization_list.html"
@@ -59,6 +70,7 @@ class OrganizationUpdateView(UpdateView):
     success_url = reverse_lazy("organization-list")
 
 
+# Project views
 class ProjectListView(ListView):
     model = Project
     template_name = "task_app/project_list.html"
@@ -86,6 +98,7 @@ class ProjectUpdateView(UpdateView):
     success_url = reverse_lazy("project-list")
 
 
+# Task status views
 class TaskStatusListView(ListView):
     model = TaskStatus
     template_name = "task_app/taskstatus_list.html"
@@ -113,6 +126,7 @@ class TaskStatusUpdateView(UpdateView):
     success_url = reverse_lazy("taskstatus-list")
 
 
+# Task views
 class TaskListView(ListView):
     model = Task
     template_name = "task_app/task_list.html"
@@ -162,6 +176,7 @@ class TaskUpdateView(UpdateView):
     success_url = reverse_lazy("task-list")
 
 
+# Secure access flow using RSA signature verification and short-lived session code
 def secure_access_view(request):
     challenge_message = "unlock-task-report"
 
@@ -172,7 +187,6 @@ def secure_access_view(request):
             public_key_path = Path(__file__).resolve().parent / "keys" / "public_key.pem"
             public_key_data = public_key_path.read_bytes()
             public_key = load_pem_public_key(public_key_data)
-
             signature = base64.b64decode(signature_b64)
 
             public_key.verify(
@@ -214,6 +228,7 @@ def secure_code_view(request):
         return redirect("secure-access")
 
     created_at = timezone.datetime.fromisoformat(created_at_str)
+
     if timezone.is_naive(created_at):
         created_at = timezone.make_aware(created_at, timezone.get_current_timezone())
 
@@ -221,6 +236,7 @@ def secure_code_view(request):
         request.session.pop("secure_unlock_code", None)
         request.session.pop("secure_unlock_created", None)
         request.session.pop("secure_unlock_verified", None)
+
         messages.error(request, "Your six-digit unlock code expired. Please verify the signature again.")
         return redirect("secure-access")
 

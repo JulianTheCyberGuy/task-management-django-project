@@ -1,7 +1,9 @@
 {% extends "task_app/base.html" %}
 
 {% block content %}
+<!-- Project create/edit form -->
 <h2>{% if object %}Edit Project{% else %}Add Project{% endif %}</h2>
+
 <form method="post">
     {% csrf_token %}
     {{ form.as_p }}

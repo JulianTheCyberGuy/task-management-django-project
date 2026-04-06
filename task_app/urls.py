@@ -1,27 +1,30 @@
 from django.urls import path
+
 from .views import (
     HomePageView,
-    OrganizationListView,
-    OrganizationDetailView,
     OrganizationCreateView,
+    OrganizationDetailView,
+    OrganizationListView,
     OrganizationUpdateView,
-    ProjectListView,
-    ProjectDetailView,
     ProjectCreateView,
+    ProjectDetailView,
+    ProjectListView,
     ProjectUpdateView,
-    TaskStatusListView,
-    TaskStatusDetailView,
-    TaskStatusCreateView,
-    TaskStatusUpdateView,
-    TaskListView,
-    TaskDetailView,
     TaskCreateView,
+    TaskDetailView,
+    TaskListView,
+    TaskStatusCreateView,
+    TaskStatusDetailView,
+    TaskStatusListView,
+    TaskStatusUpdateView,
     TaskUpdateView,
+    protected_report_view,
     secure_access_view,
     secure_code_view,
-    protected_report_view,
 )
 
+
+# Application routes
 urlpatterns = [
     path("", HomePageView.as_view(), name="home"),
 
