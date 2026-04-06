@@ -1,9 +1,10 @@
 import calendar
 from datetime import date, timedelta
 
+from django.contrib.auth.decorators import login_required
 from django.shortcuts import render
 
-from task_app.models import Task
+from task_app.access import tasks_for_user
 
 
 class CalendarMonthBuilder:
@@ -14,7 +15,6 @@ class CalendarMonthBuilder:
 
     def build(self, tasks_by_date):
         weeks = []
-
         for week in self.calendar.monthdatescalendar(self.year, self.month):
             week_days = []
             for day_value in week:
@@ -28,7 +28,6 @@ class CalendarMonthBuilder:
                     }
                 )
             weeks.append(week_days)
-
         return weeks
 
 
@@ -68,14 +67,7 @@ def _build_tasks_by_date(task_queryset):
     return tasks_by_date
 
 
-def _base_task_queryset():
-    return (
-        Task.objects.select_related("project", "status", "assigned_to")
-        .filter(due_date__isnull=False)
-        .order_by("due_date", "priority", "title")
-    )
-
-
+@login_required
 def calendar_month_view(request):
     selected_date = _get_selected_date(request)
     mode = _get_mode(request)
@@ -85,8 +77,6 @@ def calendar_month_view(request):
     month_end = selected_date.replace(day=calendar.monthrange(selected_date.year, selected_date.month)[1])
     week_start = selected_date - timedelta(days=(selected_date.weekday() + 1) % 7)
     week_end = week_start + timedelta(days=6)
-    day_start = selected_date
-    day_end = selected_date
 
     if mode == "month":
         range_start, range_end = month_start, month_end
@@ -99,7 +89,7 @@ def calendar_month_view(request):
         next_anchor = week_start + timedelta(days=7)
         heading = f"Week of {week_start.strftime('%b %d, %Y')}"
     elif mode == "day":
-        range_start, range_end = day_start, day_end
+        range_start = range_end = selected_date
         previous_anchor = selected_date - timedelta(days=1)
         next_anchor = selected_date + timedelta(days=1)
         heading = selected_date.strftime("%A, %B %d, %Y")
@@ -109,9 +99,13 @@ def calendar_month_view(request):
         next_anchor = month_end + timedelta(days=1)
         heading = f"Task List for {selected_date.strftime('%B %Y')}"
 
-    tasks = _base_task_queryset().filter(due_date__gte=range_start, due_date__lte=range_end)
+    tasks = (
+        tasks_for_user(request.user)
+        .select_related("project", "status", "assigned_to")
+        .filter(due_date__isnull=False, due_date__gte=range_start, due_date__lte=range_end)
+        .order_by("due_date", "priority", "title")
+    )
     tasks_by_date = _build_tasks_by_date(tasks)
-
     month_builder = CalendarMonthBuilder(selected_date.year, selected_date.month)
     month_weeks = month_builder.build(tasks_by_date)
 
@@ -129,19 +123,14 @@ def calendar_month_view(request):
             }
         )
 
-    day_tasks = tasks_by_date.get(selected_date, [])
-    list_groups = []
-    for task_date, day_tasks_group in sorted(tasks_by_date.items()):
-        list_groups.append({"date": task_date, "tasks": day_tasks_group})
-
     context = {
         "view_mode": mode,
         "calendar_heading": heading,
         "month_weeks": month_weeks,
         "weekdays": ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"],
         "week_days": week_days,
-        "day_tasks": day_tasks,
-        "list_groups": list_groups,
+        "day_tasks": tasks_by_date.get(selected_date, []),
+        "list_groups": [{"date": task_date, "tasks": day_tasks_group} for task_date, day_tasks_group in sorted(tasks_by_date.items())],
         "task_total": tasks.count(),
         "selected_date": selected_date,
         "selected_day": selected_date.day,
@@ -157,5 +146,4 @@ def calendar_month_view(request):
         "current_month": today.month,
         "current_year": today.year,
     }
-
     return render(request, "calendar_app/calendar_month.html", context)

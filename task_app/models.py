@@ -1,8 +1,13 @@
 from django.conf import settings
+from django.contrib.auth import get_user_model
 from django.db import models
+from django.db.models.signals import post_save
+from django.dispatch import receiver
 
 
-# Organization and project models
+User = get_user_model()
+
+
 class Organization(models.Model):
     name = models.CharField(max_length=150, unique=True)
     contact_email = models.EmailField(blank=True)
@@ -14,6 +19,35 @@ class Organization(models.Model):
 
     def __str__(self):
         return self.name
+
+
+class UserProfile(models.Model):
+    ROLE_ADMIN = "ADMIN"
+    ROLE_MANAGER = "MANAGER"
+    ROLE_MEMBER = "MEMBER"
+    ROLE_CHOICES = [
+        (ROLE_ADMIN, "Administrator"),
+        (ROLE_MANAGER, "Manager"),
+        (ROLE_MEMBER, "Member"),
+    ]
+
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="profile")
+    organization = models.ForeignKey(
+        Organization,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="user_profiles",
+    )
+    role = models.CharField(max_length=20, choices=ROLE_CHOICES, default=ROLE_MEMBER)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["user__username"]
+
+    def __str__(self):
+        return f"{self.user.username} profile"
 
 
 class Project(models.Model):
@@ -37,7 +71,6 @@ class Project(models.Model):
         return f"{self.name} ({self.organization.name})"
 
 
-# Task status model
 class TaskStatus(models.Model):
     name = models.CharField(max_length=50, unique=True)
     description = models.CharField(max_length=200, blank=True)
@@ -51,7 +84,6 @@ class TaskStatus(models.Model):
         return self.name
 
 
-# Task model
 class Task(models.Model):
     PRIORITY_LOW = "LOW"
     PRIORITY_MEDIUM = "MED"
@@ -97,3 +129,65 @@ class Task(models.Model):
 
     def __str__(self):
         return self.title
+
+
+class AuditLog(models.Model):
+    ACTION_CREATE = "CREATE"
+    ACTION_UPDATE = "UPDATE"
+    ACTION_VIEW = "VIEW"
+    ACTION_VERIFY = "VERIFY"
+    ACTION_DENIED = "DENIED"
+
+    ACTION_CHOICES = [
+        (ACTION_CREATE, "Create"),
+        (ACTION_UPDATE, "Update"),
+        (ACTION_VIEW, "View"),
+        (ACTION_VERIFY, "Verify"),
+        (ACTION_DENIED, "Denied"),
+    ]
+
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True)
+    action = models.CharField(max_length=20, choices=ACTION_CHOICES)
+    entity_type = models.CharField(max_length=100)
+    entity_id = models.CharField(max_length=50, blank=True)
+    summary = models.CharField(max_length=255)
+    metadata = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.action} {self.entity_type}"
+
+
+class SecurityEvent(models.Model):
+    SEVERITY_INFO = "INFO"
+    SEVERITY_WARNING = "WARNING"
+    SEVERITY_ERROR = "ERROR"
+    SEVERITY_CHOICES = [
+        (SEVERITY_INFO, "Info"),
+        (SEVERITY_WARNING, "Warning"),
+        (SEVERITY_ERROR, "Error"),
+    ]
+
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True)
+    event_type = models.CharField(max_length=100)
+    severity = models.CharField(max_length=20, choices=SEVERITY_CHOICES, default=SEVERITY_INFO)
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+    details = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.event_type} ({self.severity})"
+
+
+@receiver(post_save, sender=User)
+def ensure_user_profile(sender, instance, created, **kwargs):
+    if created:
+        UserProfile.objects.create(user=instance)
+    else:
+        UserProfile.objects.get_or_create(user=instance)

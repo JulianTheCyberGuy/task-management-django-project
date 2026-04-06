@@ -6,10 +6,13 @@ from .views import (
     OrganizationDetailView,
     OrganizationListView,
     OrganizationUpdateView,
+    ProfileUpdateView,
+    ProfileView,
     ProjectCreateView,
     ProjectDetailView,
     ProjectListView,
     ProjectUpdateView,
+    SignUpView,
     TaskCreateView,
     TaskDetailView,
     TaskListView,
@@ -20,35 +23,30 @@ from .views import (
     TaskUpdateView,
     protected_report_view,
     secure_access_view,
-    secure_code_view,
 )
 
 
-# Application routes
 urlpatterns = [
     path("", HomePageView.as_view(), name="home"),
-
+    path("accounts/signup/", SignUpView.as_view(), name="signup"),
+    path("accounts/profile/", ProfileView.as_view(), name="profile"),
+    path("accounts/profile/update/", ProfileUpdateView.as_view(), name="profile-update"),
     path("organizations/", OrganizationListView.as_view(), name="organization-list"),
     path("organizations/add/", OrganizationCreateView.as_view(), name="organization-add"),
     path("organizations/<int:pk>/", OrganizationDetailView.as_view(), name="organization-detail"),
     path("organizations/<int:pk>/edit/", OrganizationUpdateView.as_view(), name="organization-edit"),
-
     path("projects/", ProjectListView.as_view(), name="project-list"),
     path("projects/add/", ProjectCreateView.as_view(), name="project-add"),
     path("projects/<int:pk>/", ProjectDetailView.as_view(), name="project-detail"),
     path("projects/<int:pk>/edit/", ProjectUpdateView.as_view(), name="project-edit"),
-
     path("statuses/", TaskStatusListView.as_view(), name="taskstatus-list"),
     path("statuses/add/", TaskStatusCreateView.as_view(), name="taskstatus-add"),
     path("statuses/<int:pk>/", TaskStatusDetailView.as_view(), name="taskstatus-detail"),
     path("statuses/<int:pk>/edit/", TaskStatusUpdateView.as_view(), name="taskstatus-edit"),
-
     path("tasks/", TaskListView.as_view(), name="task-list"),
     path("tasks/add/", TaskCreateView.as_view(), name="task-add"),
     path("tasks/<int:pk>/", TaskDetailView.as_view(), name="task-detail"),
     path("tasks/<int:pk>/edit/", TaskUpdateView.as_view(), name="task-edit"),
-
     path("secure-access/", secure_access_view, name="secure-access"),
-    path("secure-code/", secure_code_view, name="secure-code"),
     path("protected-report/", protected_report_view, name="protected-report"),
 ]

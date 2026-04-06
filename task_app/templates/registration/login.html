@@ -1,0 +1,39 @@
+{% extends "task_app/base.html" %}
+
+{% block content %}
+<h2>Sign In</h2>
+<p class="muted form-intro-text">
+    Sign in to access the task dashboard, calendar, protected workflows, and your account profile.
+</p>
+
+<form method="post" class="app-form-card compact-form-card">
+    {% csrf_token %}
+
+    {% if form.non_field_errors %}
+        <div class="message error">{{ form.non_field_errors }}</div>
+    {% endif %}
+
+    <div class="form-grid-single">
+        <div class="form-field full-width-field{% if form.username.errors %} has-errors{% endif %}">
+            <label for="{{ form.username.id_for_label }}">Username</label>
+            {{ form.username }}
+            {% if form.username.errors %}<div class="field-error">{{ form.username.errors|striptags }}</div>{% endif %}
+        </div>
+
+        <div class="form-field full-width-field{% if form.password.errors %} has-errors{% endif %}">
+            <label for="{{ form.password.id_for_label }}">Password</label>
+            {{ form.password }}
+            {% if form.password.errors %}<div class="field-error">{{ form.password.errors|striptags }}</div>{% endif %}
+        </div>
+    </div>
+
+    {% if next %}
+        <input type="hidden" name="next" value="{{ next }}">
+    {% endif %}
+
+    <div class="form-actions-row">
+        <button type="submit"><span class="button-text">Sign In</span></button>
+        <a class="text-link-action" href="{% url 'signup' %}">Need an account? Sign up</a>
+    </div>
+</form>
+{% endblock %}

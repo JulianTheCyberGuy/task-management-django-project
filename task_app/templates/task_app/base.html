@@ -107,6 +107,18 @@
             color: rgba(255,255,255,0.55);
         }
 
+        .auth-status-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            padding: 0.35rem 0.65rem;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.12);
+            color: white;
+            font-size: 0.85rem;
+            font-weight: bold;
+        }
+
         main {
             padding: 2rem;
             max-width: 1320px;
@@ -1323,6 +1335,18 @@
                 display: none;
             }
 
+            .auth-status-chip {
+                display: inline-flex;
+                align-items: center;
+                gap: 0.4rem;
+                padding: 0.35rem 0.65rem;
+                border-radius: 999px;
+                background: rgba(255, 255, 255, 0.12);
+                color: white;
+                font-size: 0.85rem;
+                font-weight: bold;
+            }
+
             main {
                 padding: 1.2rem;
                 margin: 1rem;
@@ -1364,13 +1388,34 @@
             </div>
 
             <div class="nav-right">
-                <a href="{% url 'secure-access' %}">Secure Access</a>
-                <span class="nav-separator">|</span>
-
-                <a href="{% url 'protected-report' %}">Protected Report</a>
-                <span class="nav-separator">|</span>
-
-                <a href="/admin/">Admin</a>
+                {% if user.is_authenticated %}
+                    <span class="auth-status-chip">
+                        {{ user.username }}
+                        {% if current_user_role_label %}• {{ current_user_role_label }}{% endif %}
+                    </span>
+                    <span class="nav-separator">|</span>
+            
+                    <a href="{% url 'profile' %}">My Account</a>
+                    <span class="nav-separator">|</span>
+            
+                    <a href="{% url 'secure-access' %}">Secure Access</a>
+                    <span class="nav-separator">|</span>
+            
+                    <a href="{% url 'protected-report' %}">Protected Report</a>
+                    <span class="nav-separator">|</span>
+            
+                    <a href="/admin/">Admin</a>
+                    <span class="nav-separator">|</span>
+            
+                    <form method="post" action="{% url 'logout' %}" class="unstyled-form" style="display:inline; margin:0; max-width:none; background:none; border:none; box-shadow:none; padding:0;">
+                        {% csrf_token %}
+                        <button type="submit" style="background:none;border:none;color:white;font-weight:bold;padding:0.4rem 0.6rem;cursor:pointer;">Logout</button>
+                    </form>
+                {% else %}
+                    <a href="{% url 'login' %}">Login</a>
+                    <span class="nav-separator">|</span>
+                    <a href="{% url 'signup' %}">Sign Up</a>
+                {% endif %}
             </div>
         </nav>
     </header>

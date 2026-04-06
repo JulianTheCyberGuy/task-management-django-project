@@ -1,23 +1,56 @@
 {% extends "task_app/base.html" %}
 
 {% block content %}
-<!-- Protected content shown after successful verification -->
-<h2>Protected Task Report</h2>
-<p>
-    Access to this page was granted only after successful RSA signature verification and six-digit code validation.
-</p>
+<div class="page-header">
+    <div class="page-header-copy">
+        <h2 class="page-title">Protected Task Report</h2>
+        <p class="page-subtitle">
+            Access to this report required both an authenticated session and successful RSA challenge verification.
+            All access attempts are recorded in the audit and security logs.
+        </p>
+    </div>
+    <a class="button" href="{% url 'secure-access' %}">Re-Verify Signature</a>
+</div>
 
 {% if tasks %}
-    {% for task in tasks %}
-        <div class="card">
-            <h3>{{ task.title }}</h3>
-            <p><strong>Project:</strong> {{ task.project.name }}</p>
-            <p><strong>Status:</strong> {{ task.status.name }}</p>
-            <p><strong>Priority:</strong> {{ task.get_priority_display }}</p>
-            <p><strong>Completed:</strong> {{ task.is_completed }}</p>
-        </div>
-    {% endfor %}
+    <div class="entity-grid">
+        {% for task in tasks %}
+            <article class="entity-card">
+                <div class="entity-card-header">
+                    <h3 class="entity-card-title">{{ task.title }}</h3>
+                    <span class="priority-pill priority-{{ task.priority|lower }}">{{ task.get_priority_display }}</span>
+                </div>
+
+                <div class="entity-card-body">
+                    <div class="pill-row">
+                        <span class="status-pill">{{ task.status.name }}</span>
+                        <span class="boolean-pill {% if task.is_completed %}true{% else %}false{% endif %}">
+                            {% if task.is_completed %}Completed{% else %}Open{% endif %}
+                        </span>
+                    </div>
+
+                    <div class="entity-meta-list">
+                        <div class="entity-meta-item">
+                            <span class="entity-meta-label">Project</span>
+                            <span class="entity-meta-value">{{ task.project.name }}</span>
+                        </div>
+                        <div class="entity-meta-item">
+                            <span class="entity-meta-label">Assigned To</span>
+                            <span class="entity-meta-value">{{ task.assigned_to|default:"Unassigned" }}</span>
+                        </div>
+                        <div class="entity-meta-item">
+                            <span class="entity-meta-label">Due Date</span>
+                            <span class="entity-meta-value">{{ task.due_date|default:"Not scheduled" }}</span>
+                        </div>
+                    </div>
+                </div>
+            </article>
+        {% endfor %}
+    </div>
 {% else %}
-    <p>No tasks are currently available.</p>
+    <div class="empty-state-card">
+        <h3>No protected tasks in scope</h3>
+        <p>There are no tasks available in your current secured view.</p>
+    </div>
 {% endif %}
 {% endblock %}

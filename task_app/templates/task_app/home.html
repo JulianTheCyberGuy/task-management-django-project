@@ -1,10 +1,18 @@
 {% extends "task_app/base.html" %}
 
 {% block content %}
-<h2>Dashboard</h2>
-<p class="muted">
-    This dashboard provides a quick overview of the task management application and recent activity.
-</p>
+<div class="page-header">
+    <div class="page-header-copy">
+        <h2 class="page-title">Dashboard</h2>
+        <p class="page-subtitle">
+            This dashboard reflects the data visible to your signed-in role and organization scope.
+        </p>
+    </div>
+    <div class="pill-row">
+        <span class="status-pill">Role: {{ user_role }}</span>
+        {% if user_organization %}<span class="status-pill">Organization: {{ user_organization.name }}</span>{% endif %}
+    </div>
+</div>
 
 <div class="grid">
     <div class="stat-card">
@@ -71,10 +79,15 @@
 </div>
 
 <div class="section inline-links">
-    <a class="button" href="{% url 'organization-add' %}">Add Organization</a>
-    <a class="button" href="{% url 'project-add' %}">Add Project</a>
-    <a class="button" href="{% url 'taskstatus-add' %}">Add Status</a>
-    <a class="button" href="{% url 'task-add' %}">Add Task</a>
+    {% if user_role == 'ADMIN' or user_role == 'MANAGER' %}
+        <a class="button" href="{% url 'project-add' %}">Add Project</a>
+        <a class="button" href="{% url 'taskstatus-add' %}">Add Status</a>
+        <a class="button" href="{% url 'task-add' %}">Add Task</a>
+        <a class="button" href="{% url 'secure-access' %}">Secure Report Access</a>
+    {% endif %}
+    {% if user_role == 'ADMIN' %}
+        <a class="button" href="{% url 'organization-add' %}">Add Organization</a>
+    {% endif %}
     <a class="button" href="{% url 'calendar-month' %}">View Calendar</a>
 </div>
 {% endblock %}

@@ -1,0 +1,61 @@
+{% extends "task_app/base.html" %}
+
+{% block content %}
+<div class="detail-shell">
+    <div class="detail-card">
+        <div class="detail-topbar">
+            <div class="detail-title-group">
+                <h2 class="detail-title">My Account</h2>
+                <p class="detail-subtitle">
+                    Manage your basic account details and review the access level currently assigned to your profile.
+                </p>
+            </div>
+        </div>
+
+        <div class="detail-grid">
+            <div class="detail-item">
+                <span class="detail-label">Current Role</span>
+                <div class="detail-value">{{ current_user_role_label|default:"Member" }}</div>
+            </div>
+
+            <div class="detail-item">
+                <span class="detail-label">Organization</span>
+                <div class="detail-value">{% if current_user_organization %}{{ current_user_organization.name }}{% else %}Not assigned{% endif %}</div>
+            </div>
+        </div>
+
+        <h3 class="related-section-title">Update Account Details</h3>
+        <form method="post" action="{% url 'profile-update' %}" class="app-form-card compact-form-card">
+            {% csrf_token %}
+
+            {% if profile_form.non_field_errors %}
+                <div class="message error">{{ profile_form.non_field_errors }}</div>
+            {% endif %}
+
+            <div class="form-grid-two">
+                <div class="form-field{% if profile_form.first_name.errors %} has-errors{% endif %}">
+                    <label for="{{ profile_form.first_name.id_for_label }}">First Name</label>
+                    {{ profile_form.first_name }}
+                    {% if profile_form.first_name.errors %}<div class="field-error">{{ profile_form.first_name.errors|striptags }}</div>{% endif %}
+                </div>
+
+                <div class="form-field{% if profile_form.last_name.errors %} has-errors{% endif %}">
+                    <label for="{{ profile_form.last_name.id_for_label }}">Last Name</label>
+                    {{ profile_form.last_name }}
+                    {% if profile_form.last_name.errors %}<div class="field-error">{{ profile_form.last_name.errors|striptags }}</div>{% endif %}
+                </div>
+
+                <div class="form-field full-width-field{% if profile_form.email.errors %} has-errors{% endif %}">
+                    <label for="{{ profile_form.email.id_for_label }}">Email</label>
+                    {{ profile_form.email }}
+                    {% if profile_form.email.errors %}<div class="field-error">{{ profile_form.email.errors|striptags }}</div>{% endif %}
+                </div>
+            </div>
+
+            <div class="form-actions-row">
+                <button type="submit"><span class="button-text">Save Account Changes</span></button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

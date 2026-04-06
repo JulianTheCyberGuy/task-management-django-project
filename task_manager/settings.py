@@ -4,14 +4,22 @@ import os
 import dj_database_url
 
 
-# Base project settings
 BASE_DIR = Path(__file__).resolve().parent.parent
-SECRET_KEY = "fill"
-DEBUG = True
-ALLOWED_HOSTS = ["127.0.0.1", "localhost", ".onrender.com"]
+SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "change-me-in-production")
+DEBUG = os.environ.get("DJANGO_DEBUG", "True") == "True"
 
+ALLOWED_HOSTS = [
+    host.strip()
+    for host in os.environ.get("DJANGO_ALLOWED_HOSTS", "127.0.0.1,localhost").split(",")
+    if host.strip()
+]
 
-# Installed applications
+CSRF_TRUSTED_ORIGINS = [
+    origin.strip()
+    for origin in os.environ.get("DJANGO_CSRF_TRUSTED_ORIGINS", "").split(",")
+    if origin.strip()
+]
+
 INSTALLED_APPS = [
     "django.contrib.admin",
     "django.contrib.auth",
@@ -23,8 +31,6 @@ INSTALLED_APPS = [
     "calendar_app",
 ]
 
-
-# Middleware stack
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
@@ -36,8 +42,6 @@ MIDDLEWARE = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
 
-
-# URL and template configuration
 ROOT_URLCONF = "task_manager.urls"
 
 TEMPLATES = [
@@ -50,6 +54,7 @@ TEMPLATES = [
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
+                "task_app.context_processors.current_user_access",
             ],
         },
     },
@@ -58,14 +63,10 @@ TEMPLATES = [
 WSGI_APPLICATION = "task_manager.wsgi.application"
 ASGI_APPLICATION = "task_manager.asgi.application"
 
-
-# Database configuration
 DATABASES = {
-    "default": dj_database_url.config(default="sqlite:///db.sqlite3")
+    "default": dj_database_url.config(default=f"sqlite:///{BASE_DIR / 'db.sqlite3'}")
 }
 
-
-# Authentication and password validation
 AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
     {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator"},
@@ -73,18 +74,35 @@ AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
 ]
 
-
-# Localization and timezone
 LANGUAGE_CODE = "en-us"
 TIME_ZONE = "America/New_York"
 USE_I18N = True
 USE_TZ = True
 
-
-# Static file handling
 STATIC_URL = "/static/"
-STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
+STATIC_ROOT = BASE_DIR / "staticfiles"
+STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
-
-# Default primary key type
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+LOGIN_URL = "/accounts/login/"
+LOGIN_REDIRECT_URL = "/"
+LOGOUT_REDIRECT_URL = "/accounts/login/"
+
+SESSION_COOKIE_HTTPONLY = True
+SESSION_COOKIE_SECURE = os.environ.get("DJANGO_SESSION_COOKIE_SECURE", "False") == "True"
+CSRF_COOKIE_SECURE = os.environ.get("DJANGO_CSRF_COOKIE_SECURE", "False") == "True"
+SECURE_BROWSER_XSS_FILTER = True
+SECURE_CONTENT_TYPE_NOSNIFF = True
+X_FRAME_OPTIONS = "DENY"
+SECURE_HSTS_SECONDS = int(os.environ.get("DJANGO_SECURE_HSTS_SECONDS", "0" if DEBUG else "3600"))
+SECURE_HSTS_INCLUDE_SUBDOMAINS = not DEBUG
+SECURE_HSTS_PRELOAD = not DEBUG
+SECURE_SSL_REDIRECT = os.environ.get("DJANGO_SECURE_SSL_REDIRECT", "False") == "True"
+
+SECURE_ACCESS_PUBLIC_KEY_PATH = Path(
+    os.environ.get(
+        "DJANGO_PUBLIC_KEY_PATH",
+        BASE_DIR / "task_app" / "keys" / "public_key.pem",
+    )
+)

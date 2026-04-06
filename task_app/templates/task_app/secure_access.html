@@ -1,24 +1,40 @@
 {% extends "task_app/base.html" %}
 
 {% block content %}
-<!-- First step of the secure access flow -->
-<h2>Secure Access Verification</h2>
-<p>
-    This page uses RSA signature verification. First, sign the challenge message with the private RSA key.
-    After successful verification, the system generates a short-lived six-digit unlock code for easier access.
-</p>
+<div class="detail-shell">
+    <div class="detail-card">
+        <div class="detail-topbar">
+            <div class="detail-title-group">
+                <h2 class="detail-title">Signed Secure Access</h2>
+                <p class="detail-subtitle">
+                    This workflow issues a short-lived nonce challenge. Sign the exact challenge value with the private RSA key,
+                    submit the Base64 signature, and the server will verify it with the configured public key before granting access
+                    to the protected report.
+                </p>
+            </div>
+        </div>
 
-<div class="card">
-    <p><strong>Challenge message:</strong></p>
-    <p><code>{{ challenge_message }}</code></p>
+        <div class="detail-grid">
+            <div class="detail-item full-width">
+                <span class="detail-label">Current challenge</span>
+                <div class="detail-value"><code>{{ challenge_message }}</code></div>
+            </div>
+        </div>
+
+        <form method="post" class="app-form-card compact-form-card">
+            {% csrf_token %}
+            <div class="form-grid-single">
+                <div class="form-field full-width-field">
+                    <label for="signature">Base64 Signature</label>
+                    <textarea name="signature" id="signature" rows="8" required></textarea>
+                    <div class="form-help-text">The challenge expires after 5 minutes and is invalidated after a successful verification attempt.</div>
+                </div>
+            </div>
+
+            <div class="form-actions-row">
+                <button type="submit"><span class="button-text">Verify Signature</span></button>
+            </div>
+        </form>
+    </div>
 </div>
-
-<form method="post">
-    {% csrf_token %}
-    <p>
-        <label for="signature"><strong>Base64 Signature</strong></label>
-        <textarea name="signature" id="signature" rows="8" required></textarea>
-    </p>
-    <button type="submit">Verify RSA Signature</button>
-</form>
 {% endblock %}

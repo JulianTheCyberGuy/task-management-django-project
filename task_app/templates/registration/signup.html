@@ -1,0 +1,70 @@
+{% extends "task_app/base.html" %}
+
+{% block content %}
+<h2>Create Account</h2>
+<p class="muted form-intro-text">
+    Register a new account to access the dashboard, calendar, and task workflows. New self-service accounts are created as members by default.
+</p>
+
+<form method="post" class="app-form-card compact-form-card">
+    {% csrf_token %}
+
+    {% if form.non_field_errors %}
+        <div class="message error">{{ form.non_field_errors }}</div>
+    {% endif %}
+
+    <div class="form-grid-two">
+        <div class="form-field{% if form.first_name.errors %} has-errors{% endif %}">
+            <label for="{{ form.first_name.id_for_label }}">First Name</label>
+            {{ form.first_name }}
+            {% if form.first_name.errors %}<div class="field-error">{{ form.first_name.errors|striptags }}</div>{% endif %}
+        </div>
+
+        <div class="form-field{% if form.last_name.errors %} has-errors{% endif %}">
+            <label for="{{ form.last_name.id_for_label }}">Last Name</label>
+            {{ form.last_name }}
+            {% if form.last_name.errors %}<div class="field-error">{{ form.last_name.errors|striptags }}</div>{% endif %}
+        </div>
+
+        <div class="form-field full-width-field{% if form.username.errors %} has-errors{% endif %}">
+            <label for="{{ form.username.id_for_label }}">Username</label>
+            {{ form.username }}
+            <div class="form-help-text">Choose a unique username you can use to sign in.</div>
+            {% if form.username.errors %}<div class="field-error">{{ form.username.errors|striptags }}</div>{% endif %}
+        </div>
+
+        <div class="form-field full-width-field{% if form.email.errors %} has-errors{% endif %}">
+            <label for="{{ form.email.id_for_label }}">Email</label>
+            {{ form.email }}
+            <div class="form-help-text">We use this to identify your account and support future notifications.</div>
+            {% if form.email.errors %}<div class="field-error">{{ form.email.errors|striptags }}</div>{% endif %}
+        </div>
+
+        <div class="form-field full-width-field{% if form.organization.errors %} has-errors{% endif %}">
+            <label for="{{ form.organization.id_for_label }}">Organization</label>
+            {{ form.organization }}
+            <div class="form-help-text">Select your organization if it already exists. You can leave this blank and have an admin assign it later.</div>
+            {% if form.organization.errors %}<div class="field-error">{{ form.organization.errors|striptags }}</div>{% endif %}
+        </div>
+
+        <div class="form-field{% if form.password1.errors %} has-errors{% endif %}">
+            <label for="{{ form.password1.id_for_label }}">Password</label>
+            {{ form.password1 }}
+            {% if form.password1.help_text %}<div class="form-help-text">{{ form.password1.help_text|safe }}</div>{% endif %}
+            {% if form.password1.errors %}<div class="field-error">{{ form.password1.errors|striptags }}</div>{% endif %}
+        </div>
+
+        <div class="form-field{% if form.password2.errors %} has-errors{% endif %}">
+            <label for="{{ form.password2.id_for_label }}">Confirm Password</label>
+            {{ form.password2 }}
+            {% if form.password2.help_text %}<div class="form-help-text">{{ form.password2.help_text|safe }}</div>{% endif %}
+            {% if form.password2.errors %}<div class="field-error">{{ form.password2.errors|striptags }}</div>{% endif %}
+        </div>
+    </div>
+
+    <div class="form-actions-row">
+        <button type="submit"><span class="button-text">Create Account</span></button>
+        <a class="text-link-action" href="{% url 'login' %}">Already have an account? Sign in</a>
+    </div>
+</form>
+{% endblock %}

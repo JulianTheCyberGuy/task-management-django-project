@@ -1,51 +1,52 @@
 from django.contrib import admin
 
-from .models import Organization, Project, Task, TaskStatus
+from .models import AuditLog, Organization, Project, SecurityEvent, Task, TaskStatus, UserProfile
 
 
-# Organization admin
 @admin.register(Organization)
 class OrganizationAdmin(admin.ModelAdmin):
     list_display = ("name", "contact_email", "phone_number", "created_at")
-    search_fields = ("name", "contact_email")
-    ordering = ("name",)
+    search_fields = ("name", "contact_email", "phone_number")
 
 
-# Project admin
+@admin.register(UserProfile)
+class UserProfileAdmin(admin.ModelAdmin):
+    list_display = ("user", "organization", "role", "updated_at")
+    list_filter = ("role", "organization")
+    search_fields = ("user__username", "user__email")
+
+
 @admin.register(Project)
 class ProjectAdmin(admin.ModelAdmin):
     list_display = ("name", "organization", "is_active", "start_date", "end_date")
-    list_filter = ("is_active", "organization")
-    search_fields = ("name", "organization__name", "description")
-    autocomplete_fields = ("organization",)
+    list_filter = ("organization", "is_active")
+    search_fields = ("name", "organization__name")
 
 
-# Task status admin
 @admin.register(TaskStatus)
 class TaskStatusAdmin(admin.ModelAdmin):
-    list_display = ("name", "sort_order", "description")
+    list_display = ("name", "sort_order")
     ordering = ("sort_order", "name")
-    search_fields = ("name",)
 
 
-# Task admin
 @admin.register(Task)
 class TaskAdmin(admin.ModelAdmin):
-    list_display = (
-        "title",
-        "project",
-        "status",
-        "priority",
-        "assigned_to",
-        "due_date",
-        "is_completed",
-    )
+    list_display = ("title", "project", "status", "priority", "assigned_to", "due_date", "is_completed")
     list_filter = ("status", "priority", "is_completed", "project__organization")
-    search_fields = (
-        "title",
-        "description",
-        "project__name",
-        "project__organization__name",
-    )
-    autocomplete_fields = ("project", "status", "assigned_to")
-    list_editable = ("status", "priority", "is_completed", "due_date")
+    search_fields = ("title", "project__name", "assigned_to__username")
+
+
+@admin.register(AuditLog)
+class AuditLogAdmin(admin.ModelAdmin):
+    list_display = ("created_at", "user", "action", "entity_type", "entity_id", "summary")
+    list_filter = ("action", "entity_type")
+    search_fields = ("summary", "entity_type", "entity_id", "user__username")
+    readonly_fields = ("created_at",)
+
+
+@admin.register(SecurityEvent)
+class SecurityEventAdmin(admin.ModelAdmin):
+    list_display = ("created_at", "user", "event_type", "severity", "ip_address")
+    list_filter = ("severity", "event_type")
+    search_fields = ("event_type", "details", "user__username", "ip_address")
+    readonly_fields = ("created_at",)
