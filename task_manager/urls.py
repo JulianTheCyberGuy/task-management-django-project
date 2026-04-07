@@ -18,5 +18,6 @@ urlpatterns = [
     ),
     path("accounts/logout/", auth_views.LogoutView.as_view(), name="logout"),
     path("calendar/", include("calendar_app.urls")),
+    path("api/", include("task_app.api_urls")),
     path("", include("task_app.urls")),
 ]

@@ -25,6 +25,7 @@ from django.views.generic import CreateView, DetailView, FormView, ListView, Tem
 from .access import (
     ROLE_ADMIN,
     ROLE_MANAGER,
+    ROLE_MEMBER,
     can_manage_app,
     get_user_organization,
     get_user_role,
@@ -242,6 +243,13 @@ def verify_signature_against_challenge(public_key, signature, submitted_challeng
     raise InvalidSignature
 
 
+def parse_session_iso_datetime(value):
+    parsed_value = timezone.datetime.fromisoformat(value)
+    if timezone.is_naive(parsed_value):
+        parsed_value = timezone.make_aware(parsed_value, timezone.get_current_timezone())
+    return parsed_value
+
+
 class ScopedAccessMixin(LoginRequiredMixin):
     def get_user_role(self):
         return get_user_role(self.request.user)
@@ -250,30 +258,56 @@ class ScopedAccessMixin(LoginRequiredMixin):
         return get_user_organization(self.request.user)
 
 
-class ManagerRequiredMixin(ScopedAccessMixin, UserPassesTestMixin):
-    permission_denied_message = "Manager access is required to manage this resource."
+class RoleRequiredMixin(ScopedAccessMixin, UserPassesTestMixin):
+    permission_denied_message = "You do not have permission to access this resource."
+    denied_event_type = "access_denied"
+    minimum_role = ROLE_MEMBER
+
+    def has_required_role(self):
+        raise NotImplementedError("Subclasses must implement has_required_role().")
 
     def test_func(self):
+        return self.has_required_role()
+
+    def handle_no_permission(self):
+        if not self.request.user.is_authenticated:
+            return super().handle_no_permission()
+        write_security_event(
+            self.request,
+            self.denied_event_type,
+            SecurityEvent.SEVERITY_WARNING,
+            self.permission_denied_message,
+        )
+        context = {
+            "required_role": role_display_name(self.minimum_role),
+            "access_denied_message": self.permission_denied_message,
+        }
+        return render(self.request, "task_app/access_denied.html", context, status=403)
+
+
+class ManagerRequiredMixin(RoleRequiredMixin):
+    permission_denied_message = "Manager access is required to manage this resource."
+    denied_event_type = "manager_access_denied"
+    minimum_role = ROLE_MANAGER
+
+    def has_required_role(self):
         return can_manage_app(self.request.user)
 
-    def handle_no_permission(self):
-        if not self.request.user.is_authenticated:
-            return super().handle_no_permission()
-        write_security_event(self.request, "manager_access_denied", SecurityEvent.SEVERITY_WARNING, self.permission_denied_message)
-        return redirect_access_denied(self.request, ROLE_MANAGER, self.permission_denied_message)
 
-
-class AdminRequiredMixin(ScopedAccessMixin, UserPassesTestMixin):
+class AdminRequiredMixin(RoleRequiredMixin):
     permission_denied_message = "Administrator access is required to access this page."
+    denied_event_type = "admin_access_denied"
+    minimum_role = ROLE_ADMIN
 
-    def test_func(self):
+    def has_required_role(self):
         return is_admin(self.request.user)
 
-    def handle_no_permission(self):
-        if not self.request.user.is_authenticated:
-            return super().handle_no_permission()
-        write_security_event(self.request, "admin_access_denied", SecurityEvent.SEVERITY_WARNING, self.permission_denied_message)
-        return redirect_access_denied(self.request, ROLE_ADMIN, self.permission_denied_message)
+
+class UserScopedFormKwargsMixin:
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["user"] = self.request.user
+        return kwargs
 
 
 class AuditFormSuccessMixin:
@@ -339,10 +373,6 @@ class ProfileUpdateView(ScopedAccessMixin, FormView):
     template_name = "task_app/profile.html"
     success_url = reverse_lazy("profile")
 
-    def get_form_kwargs(self):
-        kwargs = super().get_form_kwargs()
-        kwargs["user"] = self.request.user
-        return kwargs
 
     def get_initial(self):
         return {
@@ -442,7 +472,7 @@ class OrganizationDetailView(ScopedAccessMixin, DetailView):
         return organizations_for_user(self.request.user)
 
 
-class OrganizationCreateView(AdminRequiredMixin, AuditFormSuccessMixin, CreateView):
+class OrganizationCreateView(AdminRequiredMixin, UserScopedFormKwargsMixin, AuditFormSuccessMixin, CreateView):
     model = Organization
     template_name = "task_app/organization_form.html"
     form_class = OrganizationForm
@@ -450,13 +480,9 @@ class OrganizationCreateView(AdminRequiredMixin, AuditFormSuccessMixin, CreateVi
     audit_action = AuditLog.ACTION_CREATE
     audit_entity_type = "organization"
 
-    def get_form_kwargs(self):
-        kwargs = super().get_form_kwargs()
-        kwargs["user"] = self.request.user
-        return kwargs
 
 
-class OrganizationUpdateView(AdminRequiredMixin, AuditFormSuccessMixin, UpdateView):
+class OrganizationUpdateView(AdminRequiredMixin, UserScopedFormKwargsMixin, AuditFormSuccessMixin, UpdateView):
     model = Organization
     template_name = "task_app/organization_form.html"
     form_class = OrganizationForm
@@ -467,10 +493,6 @@ class OrganizationUpdateView(AdminRequiredMixin, AuditFormSuccessMixin, UpdateVi
     def get_queryset(self):
         return organizations_for_user(self.request.user)
 
-    def get_form_kwargs(self):
-        kwargs = super().get_form_kwargs()
-        kwargs["user"] = self.request.user
-        return kwargs
 
 
 class ProjectListView(ScopedAccessMixin, ListView):
@@ -505,7 +527,7 @@ class ProjectDetailView(ScopedAccessMixin, DetailView):
         return projects_for_user(self.request.user).select_related("organization")
 
 
-class ProjectCreateView(ManagerRequiredMixin, AuditFormSuccessMixin, CreateView):
+class ProjectCreateView(ManagerRequiredMixin, UserScopedFormKwargsMixin, AuditFormSuccessMixin, CreateView):
     model = Project
     template_name = "task_app/project_form.html"
     form_class = ProjectForm
@@ -513,13 +535,9 @@ class ProjectCreateView(ManagerRequiredMixin, AuditFormSuccessMixin, CreateView)
     audit_action = AuditLog.ACTION_CREATE
     audit_entity_type = "project"
 
-    def get_form_kwargs(self):
-        kwargs = super().get_form_kwargs()
-        kwargs["user"] = self.request.user
-        return kwargs
 
 
-class ProjectUpdateView(ManagerRequiredMixin, AuditFormSuccessMixin, UpdateView):
+class ProjectUpdateView(ManagerRequiredMixin, UserScopedFormKwargsMixin, AuditFormSuccessMixin, UpdateView):
     model = Project
     template_name = "task_app/project_form.html"
     form_class = ProjectForm
@@ -530,10 +548,6 @@ class ProjectUpdateView(ManagerRequiredMixin, AuditFormSuccessMixin, UpdateView)
     def get_queryset(self):
         return projects_for_user(self.request.user)
 
-    def get_form_kwargs(self):
-        kwargs = super().get_form_kwargs()
-        kwargs["user"] = self.request.user
-        return kwargs
 
 
 class TaskStatusListView(ScopedAccessMixin, ListView):
@@ -560,7 +574,7 @@ class TaskStatusDetailView(ScopedAccessMixin, DetailView):
     context_object_name = "status"
 
 
-class TaskStatusCreateView(ManagerRequiredMixin, AuditFormSuccessMixin, CreateView):
+class TaskStatusCreateView(ManagerRequiredMixin, UserScopedFormKwargsMixin, AuditFormSuccessMixin, CreateView):
     model = TaskStatus
     template_name = "task_app/taskstatus_form.html"
     form_class = TaskStatusForm
@@ -568,13 +582,9 @@ class TaskStatusCreateView(ManagerRequiredMixin, AuditFormSuccessMixin, CreateVi
     audit_action = AuditLog.ACTION_CREATE
     audit_entity_type = "task_status"
 
-    def get_form_kwargs(self):
-        kwargs = super().get_form_kwargs()
-        kwargs["user"] = self.request.user
-        return kwargs
 
 
-class TaskStatusUpdateView(ManagerRequiredMixin, AuditFormSuccessMixin, UpdateView):
+class TaskStatusUpdateView(ManagerRequiredMixin, UserScopedFormKwargsMixin, AuditFormSuccessMixin, UpdateView):
     model = TaskStatus
     template_name = "task_app/taskstatus_form.html"
     form_class = TaskStatusForm
@@ -582,10 +592,6 @@ class TaskStatusUpdateView(ManagerRequiredMixin, AuditFormSuccessMixin, UpdateVi
     audit_action = AuditLog.ACTION_UPDATE
     audit_entity_type = "task_status"
 
-    def get_form_kwargs(self):
-        kwargs = super().get_form_kwargs()
-        kwargs["user"] = self.request.user
-        return kwargs
 
 
 class TaskListView(ScopedAccessMixin, ListView):
@@ -637,7 +643,7 @@ class TaskDetailView(ScopedAccessMixin, DetailView):
         return tasks_for_user(self.request.user).select_related("project", "status", "assigned_to")
 
 
-class TaskCreateView(ManagerRequiredMixin, AuditFormSuccessMixin, CreateView):
+class TaskCreateView(ManagerRequiredMixin, UserScopedFormKwargsMixin, AuditFormSuccessMixin, CreateView):
     model = Task
     template_name = "task_app/task_form.html"
     form_class = TaskForm
@@ -645,13 +651,9 @@ class TaskCreateView(ManagerRequiredMixin, AuditFormSuccessMixin, CreateView):
     audit_action = AuditLog.ACTION_CREATE
     audit_entity_type = "task"
 
-    def get_form_kwargs(self):
-        kwargs = super().get_form_kwargs()
-        kwargs["user"] = self.request.user
-        return kwargs
 
 
-class TaskUpdateView(ManagerRequiredMixin, AuditFormSuccessMixin, UpdateView):
+class TaskUpdateView(ManagerRequiredMixin, UserScopedFormKwargsMixin, AuditFormSuccessMixin, UpdateView):
     model = Task
     template_name = "task_app/task_form.html"
     form_class = TaskForm
@@ -662,10 +664,6 @@ class TaskUpdateView(ManagerRequiredMixin, AuditFormSuccessMixin, UpdateView):
     def get_queryset(self):
         return tasks_for_user(self.request.user)
 
-    def get_form_kwargs(self):
-        kwargs = super().get_form_kwargs()
-        kwargs["user"] = self.request.user
-        return kwargs
 
 
 class SecurityDashboardView(AdminRequiredMixin, TemplateView):
@@ -770,7 +768,7 @@ class SecurityEventListView(AdminRequiredMixin, ListView):
         context["window_value"] = get_recent_window_days(self.request)
         context["result_count"] = filtered_queryset.count()
         context["severity_options"] = SecurityEvent.SEVERITY_CHOICES
-        context["event_type_options"] = list(SecurityEvent.objects.order_by("event_type").values_list("event_type", flat=True).distinct())
+        context["event_type_options"] = list(filtered_queryset.order_by("event_type").values_list("event_type", flat=True).distinct())
         return context
 
 
@@ -976,9 +974,7 @@ def secure_access_view(request):
             issue_secure_challenge(request)
             return redirect("secure-access")
 
-        issued_at_dt = timezone.datetime.fromisoformat(issued_at)
-        if timezone.is_naive(issued_at_dt):
-            issued_at_dt = timezone.make_aware(issued_at_dt, timezone.get_current_timezone())
+        issued_at_dt = parse_session_iso_datetime(issued_at)
         if timezone.now() > issued_at_dt + timedelta(minutes=5):
             write_security_event(request, "signature_challenge_expired", SecurityEvent.SEVERITY_WARNING, "Secure challenge expired before signature verification.")
             messages.error(request, "Your secure challenge expired. Please sign the new challenge.")
@@ -1035,9 +1031,7 @@ def protected_report_view(request):
         messages.error(request, "You must verify a signed challenge before accessing this report.")
         return redirect("secure-access")
 
-    verified_at = timezone.datetime.fromisoformat(verified_at_str)
-    if timezone.is_naive(verified_at):
-        verified_at = timezone.make_aware(verified_at, timezone.get_current_timezone())
+    verified_at = parse_session_iso_datetime(verified_at_str)
     if timezone.now() > verified_at + timedelta(minutes=10):
         request.session.pop("secure_verified_at", None)
         write_security_event(request, "protected_report_verification_expired", SecurityEvent.SEVERITY_WARNING, "Protected report access window expired.")

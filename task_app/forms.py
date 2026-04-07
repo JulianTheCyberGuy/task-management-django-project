@@ -9,20 +9,33 @@ from .models import Organization, Project, Task, TaskStatus, UserProfile
 User = get_user_model()
 
 
-class StyledModelForm(forms.ModelForm):
+class BootstrapStyledFieldsMixin:
+    textarea_rows = 4
+    input_css_class = "form-control"
     date_input_type = "date"
 
-    def __init__(self, *args, **kwargs):
-        self.user = kwargs.pop("user", None)
-        super().__init__(*args, **kwargs)
-        for field_name, field in self.fields.items():
+    def apply_bootstrap_styles(self):
+        for field in self.fields.values():
             widget = field.widget
             if isinstance(widget, forms.Textarea):
-                widget.attrs.setdefault("rows", 4)
+                widget.attrs.setdefault("rows", self.textarea_rows)
             if isinstance(widget, forms.DateInput):
                 widget.input_type = self.date_input_type
             existing_class = widget.attrs.get("class", "")
-            widget.attrs["class"] = (existing_class + " form-control").strip()
+            widget.attrs["class"] = f"{existing_class} {self.input_css_class}".strip()
+
+
+class StyledModelForm(BootstrapStyledFieldsMixin, forms.ModelForm):
+    def __init__(self, *args, **kwargs):
+        self.user = kwargs.pop("user", None)
+        super().__init__(*args, **kwargs)
+        self.apply_bootstrap_styles()
+
+
+class StyledForm(BootstrapStyledFieldsMixin, forms.Form):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.apply_bootstrap_styles()
 
 
 class OrganizationForm(StyledModelForm):
@@ -97,7 +110,7 @@ class TaskForm(StyledModelForm):
         return cleaned_data
 
 
-class SignUpForm(UserCreationForm):
+class SignUpForm(BootstrapStyledFieldsMixin, UserCreationForm):
     first_name = forms.CharField(max_length=150)
     last_name = forms.CharField(max_length=150)
     email = forms.EmailField()
@@ -114,9 +127,7 @@ class SignUpForm(UserCreationForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["organization"].queryset = Organization.objects.order_by("name")
-        for field_name, field in self.fields.items():
-            existing_class = field.widget.attrs.get("class", "")
-            field.widget.attrs["class"] = (existing_class + " form-control").strip()
+        self.apply_bootstrap_styles()
 
     def clean_email(self):
         email = self.cleaned_data["email"].strip().lower()
@@ -138,7 +149,7 @@ class SignUpForm(UserCreationForm):
         return user
 
 
-class ProfileUpdateForm(forms.Form):
+class ProfileUpdateForm(StyledForm):
     first_name = forms.CharField(max_length=150)
     last_name = forms.CharField(max_length=150)
     email = forms.EmailField()
@@ -146,9 +157,6 @@ class ProfileUpdateForm(forms.Form):
     def __init__(self, *args, **kwargs):
         self.user = kwargs.pop("user")
         super().__init__(*args, **kwargs)
-        for field_name, field in self.fields.items():
-            existing_class = field.widget.attrs.get("class", "")
-            field.widget.attrs["class"] = (existing_class + " form-control").strip()
 
     def clean_email(self):
         email = self.cleaned_data["email"].strip().lower()

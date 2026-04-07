@@ -1,74 +1,133 @@
-# Django Task Management Project
+# Task Management Django Project
 
-This project is a simple task-management application built with Django. It includes the following models:
+A role-aware Django task management application for tracking organizations, projects, tasks, statuses, and security activity. The project includes both a server-rendered web interface and a small authenticated API surface for scoped project, task, calendar, and audit log access.
 
-- Organization
-- Project
-- TaskStatus
-- Task
+## Core Features
 
-The project is designed to be demonstrated through the Django admin portal, as requested in class.
+- Organization, project, task status, and task management
+- Role-based access for administrators, managers, and members
+- User profile management and organization scoping
+- Dashboard metrics for task health, deadlines, and status summaries
+- CSV exports for organizations, projects, and tasks
+- Security dashboard with audit logs and security events
+- Protected report flow backed by signed challenge verification
+- Authenticated API endpoints for projects, tasks, calendar events, and audit logs
 
-## Features
+## Tech Stack
 
-- Manage organizations
-- Manage projects inside organizations
-- Manage task statuses such as To Do, In Progress, and Completed
-- Manage tasks with due dates, priorities, assignees, and status
-- Demonstrate relationships between models in the Django admin portal
+- Python
+- Django
+- Django REST Framework
+- SQLite by default
+- Cryptography for secure access verification
 
-## Project Structure
+## Project Layout
 
-- `task_manager/` contains the Django project configuration
-- `task_app/` contains the application models, admin setup, and migrations
+```text
+task-management-django-project/
+├── calendar_app/         # Calendar page views and routes
+├── task_app/             # Main domain models, forms, views, API, and templates
+├── task_manager/         # Django settings, root URLs, and WSGI/ASGI config
+├── manage.py
+├── requirements.txt
+└── README.md
+```
 
-## Setup Instructions
+## Data Model Overview
+
+### Organization
+Stores the top-level organization record and contact details.
+
+### UserProfile
+Extends the Django user model with role and organization membership.
+
+### Project
+Belongs to an organization and stores lifecycle information such as start date, end date, and active state.
+
+### TaskStatus
+Stores reusable workflow states such as To Do, In Progress, and Completed.
+
+### Task
+Represents a unit of work inside a project with status, assignee, due date, priority, and completion state.
+
+### AuditLog
+Captures auditable actions across the app.
+
+### SecurityEvent
+Captures security-related events such as access denials, verification failures, and protected resource activity.
+
+## Setup
 
 1. Create and activate a virtual environment.
 2. Install dependencies:
+
    ```bash
    pip install -r requirements.txt
    ```
-3. Run migrations:
+
+3. Apply migrations:
+
    ```bash
    python manage.py migrate
    ```
-4. Create an admin user:
+
+4. Create a superuser if needed:
+
    ```bash
    python manage.py createsuperuser
    ```
-5. Start the server:
+
+5. Start the development server:
+
    ```bash
    python manage.py runserver
    ```
-6. Open the admin site:
-   - `http://127.0.0.1:8000/admin/`
 
-## Suggested Demo Flow for Video
+6. Open the app in your browser:
 
-1. Explain the design of each model and how they relate.
-2. Log into Django admin.
-3. Add an Organization.
-4. Add a Project connected to that Organization.
-5. Add TaskStatus entries such as To Do, In Progress, and Completed.
-6. Add several Tasks connected to a Project and TaskStatus.
-7. Show filtering, searching, and relationship navigation inside admin.
+   ```text
+   http://127.0.0.1:8000/
+   ```
 
-## Model Design Summary
+## Default Workflow
 
-### Organization
-Stores the name and contact information for an organization.
+1. Sign in as an administrator.
+2. Create one or more organizations.
+3. Create users and assign organization-scoped roles.
+4. Create projects inside organizations.
+5. Define task statuses.
+6. Create and assign tasks.
+7. Review dashboards, exports, and audit activity.
 
-### Project
-Belongs to one organization and stores project details such as name, description, start date, end date, and whether it is active.
+## API Summary
 
-### TaskStatus
-Stores reusable task states such as To Do, In Progress, Blocked, and Completed.
+The application includes authenticated endpoints for:
 
-### Task
-Belongs to one project and one status. It stores task details including title, description, due date, priority, completion state, and assignee.
+- Scoped project list and detail
+- Scoped task list and detail
+- Calendar task event feed
+- Admin-only audit log list and detail
+
+API routes are mounted under the application URL configuration. Authentication and queryset scope are enforced server-side.
+
+## Refactor Notes
+
+This version includes a cleanup pass focused on reducing repeated logic and making the codebase easier to maintain.
+
+- Centralized repeated form styling behavior into shared form mixins
+- Centralized repeated role-denial handling into a reusable access mixin
+- Centralized repeated `get_form_kwargs()` user injection for create and update views
+- Centralized repeated session timestamp parsing used by protected access flows
+- Expanded the README to reflect the current feature set instead of only the initial CRUD/admin scope
+
+## Running Tests
+
+```bash
+python manage.py test
+```
 
 ## Notes
 
-- This project uses Django's built-in `User` model for task assignment.
-- The admin panel is configured to make demonstrations easy with list views, filters, and search fields.
+- The application uses Django's built-in user model plus a `UserProfile` extension.
+- Role scoping is enforced in both the UI layer and API querysets.
+- Protected report access depends on the configured public key path in settings.

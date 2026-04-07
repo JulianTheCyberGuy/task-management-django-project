@@ -5,7 +5,15 @@ from django.db.models import Count, Q
 from django.utils.dateparse import parse_date
 from rest_framework import generics
 from rest_framework.exceptions import ValidationError
+from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import IsAuthenticated
+
+
+class StandardResultsSetPagination(PageNumberPagination):
+    page_size = 20
+    page_size_query_param = "page_size"
+    max_page_size = 100
+
 
 from .access import projects_for_user, tasks_for_user
 from .api_permissions import IsAdminApiUser
@@ -23,6 +31,7 @@ from .models import AuditLog, Project, Task
 class ScopedProjectListApiView(generics.ListAPIView):
     serializer_class = ProjectSummarySerializer
     permission_classes = [IsAuthenticated]
+    pagination_class = StandardResultsSetPagination
 
     def get_queryset(self):
         queryset = projects_for_user(self.request.user).select_related("organization")
@@ -62,6 +71,7 @@ class ScopedProjectDetailApiView(generics.RetrieveAPIView):
 class ScopedTaskListApiView(generics.ListAPIView):
     serializer_class = TaskListSerializer
     permission_classes = [IsAuthenticated]
+    pagination_class = StandardResultsSetPagination
 
     def get_queryset(self):
         queryset = tasks_for_user(self.request.user).select_related("project__organization", "status", "assigned_to")
@@ -166,6 +176,7 @@ class CalendarEventListApiView(generics.ListAPIView):
 class AuditLogListApiView(generics.ListAPIView):
     serializer_class = AuditLogSerializer
     permission_classes = [IsAdminApiUser]
+    pagination_class = StandardResultsSetPagination
 
     def get_queryset(self):
         queryset = AuditLog.objects.select_related("user")
