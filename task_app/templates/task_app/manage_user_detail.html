@@ -1,0 +1,45 @@
+{% extends "task_app/base.html" %}
+
+{% block content %}
+<div class="page-header">
+    <div class="page-header-copy">
+        <h2 class="page-title">User Details</h2>
+        <p class="page-subtitle">
+            Review account information, role, and organization assignment for this user.
+        </p>
+    </div>
+    <div class="page-toolbar">
+        <a class="button secondary-button" href="{% url 'manage-user-list' %}">Back to Users</a>
+        <a class="button" href="{% url 'manage-user-edit' managed_user.pk %}">Edit Access</a>
+    </div>
+</div>
+
+<div class="detail-card">
+    <div class="detail-grid">
+        <div class="detail-item">
+            <span class="detail-label">Full Name</span>
+            <span class="detail-value">{{ managed_user.get_full_name|default:'Not provided' }}</span>
+        </div>
+        <div class="detail-item">
+            <span class="detail-label">Username</span>
+            <span class="detail-value">{{ managed_user.username }}</span>
+        </div>
+        <div class="detail-item">
+            <span class="detail-label">Email</span>
+            <span class="detail-value">{{ managed_user.email|default:'No email provided' }}</span>
+        </div>
+        <div class="detail-item">
+            <span class="detail-label">Role</span>
+            <span class="detail-value">{{ managed_user.profile.get_role_display }}</span>
+        </div>
+        <div class="detail-item">
+            <span class="detail-label">Organization</span>
+            <span class="detail-value">{{ managed_user.profile.organization.name|default:'No organization assigned' }}</span>
+        </div>
+        <div class="detail-item">
+            <span class="detail-label">Date Joined</span>
+            <span class="detail-value">{{ managed_user.date_joined }}</span>
+        </div>
+    </div>
+</div>
+{% endblock %}

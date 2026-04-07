@@ -1,0 +1,73 @@
+{% extends "task_app/base.html" %}
+
+{% block content %}
+<div class="page-header">
+    <div class="page-header-copy">
+        <h2 class="page-title">Manage Users</h2>
+        <p class="page-subtitle">
+            Review user accounts, open profile details, and update role and organization assignments from the app.
+        </p>
+    </div>
+</div>
+
+<div class="filter-card">
+    <form method="get" class="unstyled-form filter-form-grid org-filter-grid">
+        <div class="filter-field filter-search-span">
+            <label for="user_q">Search</label>
+            <input type="text" id="user_q" name="q" value="{{ search_query }}" placeholder="Search username, name, email, or organization">
+        </div>
+
+        <div class="filter-actions">
+            <button type="submit">Search</button>
+            <a class="button secondary-button" href="{% url 'manage-user-list' %}">Reset</a>
+        </div>
+    </form>
+</div>
+
+<div class="filter-summary-row">
+    <span class="badge">{{ result_count }} user{{ result_count|pluralize }}</span>
+</div>
+
+{% if managed_users %}
+    <div class="entity-grid">
+        {% for managed_user in managed_users %}
+            <article class="entity-card">
+                <div class="entity-card-header">
+                    <h3 class="entity-card-title">{{ managed_user.get_full_name|default:managed_user.username }}</h3>
+                    <span class="badge">{{ managed_user.profile.role|default:'MEMBER' }}</span>
+                </div>
+
+                <div class="entity-meta-list">
+                    <div class="entity-meta-item">
+                        <span class="entity-meta-label">Username</span>
+                        <span class="entity-meta-value">{{ managed_user.username }}</span>
+                    </div>
+                    <div class="entity-meta-item">
+                        <span class="entity-meta-label">Email</span>
+                        <span class="entity-meta-value">{{ managed_user.email|default:'No email provided' }}</span>
+                    </div>
+                    <div class="entity-meta-item">
+                        <span class="entity-meta-label">Organization</span>
+                        <span class="entity-meta-value">{{ managed_user.profile.organization.name|default:'No organization assigned' }}</span>
+                    </div>
+                    <div class="entity-meta-item">
+                        <span class="entity-meta-label">Assigned Tasks</span>
+                        <span class="entity-meta-value">{{ managed_user.assigned_task_total }}</span>
+                    </div>
+                </div>
+
+                <div class="entity-card-actions">
+                    <a class="button" href="{% url 'manage-user-detail' managed_user.pk %}">View Details</a>
+                    <a class="text-link-action" href="{% url 'manage-user-edit' managed_user.pk %}">Edit Access</a>
+                </div>
+            </article>
+        {% endfor %}
+    </div>
+{% else %}
+    <div class="empty-state-card">
+        <h3>No users matched your search</h3>
+        <p>Try a broader search or reset the filter to view all user accounts.</p>
+        <a class="button" href="{% url 'manage-user-list' %}">Clear Search</a>
+    </div>
+{% endif %}
+{% endblock %}

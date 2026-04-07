@@ -453,26 +453,6 @@
             color: var(--danger);
         }
 
-
-        .context-action-bar {
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-            flex-wrap: wrap;
-            margin-bottom: 1.5rem;
-            padding: 1rem 1.1rem;
-            border: 1px solid var(--border);
-            border-radius: 14px;
-            background: linear-gradient(180deg, #f8faff 0%, #eef3ff 100%);
-        }
-
-        .context-action-label {
-            font-size: 0.92rem;
-            font-weight: 700;
-            color: var(--primary-dark);
-            margin-right: 0.25rem;
-        }
-
         .app-form-card {
             background: linear-gradient(180deg, #fbfcff 0%, #f5f8ff 100%);
             border: 1px solid #d8e2f3;
@@ -1497,6 +1477,8 @@
                         <span class="nav-separator">|</span>
                         <a href="{% url 'protected-report' %}">Protected Report</a>
                         {% if current_user_role == 'ADMIN' %}
+                            <span class="nav-separator">|</span>
+                            <a href="{% url 'manage-user-list' %}">Manage Users</a>
                             <span class="nav-separator">|</span>
                             <a href="{% url 'security-dashboard' %}">Security Dashboard</a>
                         {% endif %}

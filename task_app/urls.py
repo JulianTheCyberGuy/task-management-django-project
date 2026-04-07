@@ -1,11 +1,12 @@
-"""URL routes for the main HTML task management experience."""
-
 from django.urls import path
 
 from .views import (
     AuditLogListView,
     FailedAccessView,
     HomePageView,
+    ManageUserDetailView,
+    ManageUserListView,
+    ManageUserUpdateView,
     OrganizationCreateView,
     OrganizationDetailView,
     OrganizationExportCsvView,
@@ -43,6 +44,9 @@ urlpatterns = [
     path("accounts/signup/", SignUpView.as_view(), name="signup"),
     path("accounts/profile/", ProfileView.as_view(), name="profile"),
     path("accounts/profile/update/", ProfileUpdateView.as_view(), name="profile-update"),
+    path("users/", ManageUserListView.as_view(), name="manage-user-list"),
+    path("users/<int:pk>/", ManageUserDetailView.as_view(), name="manage-user-detail"),
+    path("users/<int:pk>/edit/", ManageUserUpdateView.as_view(), name="manage-user-edit"),
     path("organizations/", OrganizationListView.as_view(), name="organization-list"),
     path("organizations/export/csv/", OrganizationExportCsvView.as_view(), name="organization-export-csv"),
     path("organizations/add/", OrganizationCreateView.as_view(), name="organization-add"),

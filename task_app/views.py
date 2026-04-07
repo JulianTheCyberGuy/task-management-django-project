@@ -1,11 +1,3 @@
-"""Primary HTML views and security workflows for the task management app.
-
-This file contains the user-facing pages, shared filtering helpers, CSV export
-logic, and the signed-challenge flow used to protect access to the sensitive
-report. Comments focus on why particular patterns were chosen, especially where
-security or scoped-access behavior is involved.
-"""
-
 import base64
 import binascii
 import csv
@@ -23,7 +15,7 @@ from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.db.models import Count, Q
 from django.db.models.functions import TruncDate
 from django.http import Http404, HttpResponse
-from django.shortcuts import redirect, render
+from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse, reverse_lazy
 from django.utils.http import urlencode
 from django.utils import timezone
@@ -33,7 +25,6 @@ from django.views.generic import CreateView, DetailView, FormView, ListView, Tem
 from .access import (
     ROLE_ADMIN,
     ROLE_MANAGER,
-    ROLE_MEMBER,
     can_manage_app,
     get_user_organization,
     get_user_role,
@@ -42,8 +33,8 @@ from .access import (
     projects_for_user,
     tasks_for_user,
 )
-from .forms import OrganizationForm, ProfileUpdateForm, ProjectForm, SignUpForm, TaskForm, TaskStatusForm
-from .models import AuditLog, Organization, Project, SecurityEvent, Task, TaskStatus
+from .forms import AdminUserManagementForm, OrganizationForm, ProfileUpdateForm, ProjectForm, SignUpForm, TaskForm, TaskStatusForm
+from .models import AuditLog, Organization, Project, SecurityEvent, Task, TaskStatus, User, UserProfile
 
 
 SORT_LABELS = {
@@ -59,7 +50,6 @@ SORT_LABELS = {
 
 
 def get_client_ip(request):
-    # Respect proxy forwarding headers first so logged security events capture the real client IP in hosted setups.
     forwarded = request.META.get("HTTP_X_FORWARDED_FOR")
     if forwarded:
         return forwarded.split(",")[0].strip()
@@ -67,7 +57,6 @@ def get_client_ip(request):
 
 
 def write_audit_log(user, action, entity_type, summary, entity_id="", metadata=None):
-    # Centralizing audit writes avoids inconsistent audit payloads across dozens of views.
     AuditLog.objects.create(
         user=user if getattr(user, "is_authenticated", False) else None,
         action=action,
@@ -79,7 +68,6 @@ def write_audit_log(user, action, entity_type, summary, entity_id="", metadata=N
 
 
 def write_security_event(request, event_type, severity, details):
-    # Security events are intentionally separated from audit logs because not every security signal maps cleanly to a business action.
     SecurityEvent.objects.create(
         user=request.user if request.user.is_authenticated else None,
         event_type=event_type,
@@ -94,7 +82,6 @@ def get_clean_query(request, key="q"):
 
 
 def apply_text_search(queryset, query, fields):
-    """Apply a simple OR-based icontains search across an allowed field list."""
     if not query:
         return queryset
     search_filter = Q()
@@ -105,7 +92,6 @@ def apply_text_search(queryset, query, fields):
 
 
 def _project_filtered_queryset(request):
-    """Build the project list queryset once so the page and CSV export stay in sync."""
     queryset = projects_for_user(request.user).select_related("organization").annotate(task_total=Count("tasks", distinct=True))
     query = get_clean_query(request)
     active_filter = request.GET.get("active", "all")
@@ -118,7 +104,6 @@ def _project_filtered_queryset(request):
     elif active_filter == "inactive":
         queryset = queryset.filter(is_active=False)
 
-    # Mapping sort options in code keeps the allowed orderings explicit and prevents arbitrary user-controlled ordering.
     sort_map = {
         "name": ["name"],
         "recent": ["-created_at", "name"],
@@ -129,7 +114,6 @@ def _project_filtered_queryset(request):
 
 
 def _task_filtered_queryset(request):
-    """Apply all task list filters in one place for reuse across UI and export paths."""
     queryset = tasks_for_user(request.user).select_related("project", "project__organization", "status", "assigned_to")
     query = get_clean_query(request)
     status_filter = request.GET.get("status", "all")
@@ -164,7 +148,6 @@ def _task_filtered_queryset(request):
     elif due_filter == "unscheduled":
         queryset = queryset.filter(due_date__isnull=True)
 
-    # Priority is stored as strings, so this ordering is intentionally simple and paired with due date/title for stable output.
     sort_map = {
         "status": ["status__sort_order", "due_date", "title"],
         "due": ["due_date", "title"],
@@ -176,7 +159,6 @@ def _task_filtered_queryset(request):
 
 
 def _build_csv_response(filename, headers, rows):
-    """Return a downloadable CSV response using a shared writer path."""
     response = HttpResponse(content_type="text/csv")
     response["Content-Disposition"] = f'attachment; filename="{filename}"'
     writer = csv.writer(response)
@@ -186,7 +168,6 @@ def _build_csv_response(filename, headers, rows):
     return response
 
 def get_recent_window_days(request, default="30"):
-    """Whitelist supported time-window filters for audit and security dashboards."""
     value = request.GET.get("window", default)
     if value not in {"7", "30", "90", "all"}:
         return default
@@ -194,7 +175,6 @@ def get_recent_window_days(request, default="30"):
 
 
 def apply_recent_window(queryset, field_name, window_value):
-    """Limit dashboard data to a recent reporting window unless 'all' is requested."""
     if window_value == "all":
         return queryset
     return queryset.filter(**{f"{field_name}__gte": timezone.now() - timedelta(days=int(window_value))})
@@ -205,7 +185,6 @@ def is_protected_resource_event(event_type):
 
 
 def role_display_name(role_value):
-    """Translate internal role codes into labels suitable for UI messaging."""
     role_map = {
         ROLE_ADMIN: "Administrator",
         ROLE_MANAGER: "Manager",
@@ -216,7 +195,6 @@ def role_display_name(role_value):
 
 
 def redirect_access_denied(request, minimum_role, message=None):
-    """Redirect to a shared access-denied page with consistent messaging."""
     role_name = role_display_name(minimum_role)
     denied_message = message or f"{role_name} access is required to access this page."
     target_url = reverse("access-denied")
@@ -234,7 +212,6 @@ def access_denied_view(request):
 
 
 def admin_portal_redirect_view(request):
-    """Guard access to Django admin through the app's own role checks and logging."""
     if not request.user.is_authenticated:
         return redirect(f"{settings.LOGIN_URL}?next={request.path}")
     if not is_admin(request.user):
@@ -244,11 +221,6 @@ def admin_portal_redirect_view(request):
 
 
 def verify_signature_against_challenge(public_key, signature, submitted_challenge):
-    """Verify the signed challenge, tolerating common newline differences.
-
-    Accepting exact, LF, and CRLF variants makes the flow more resilient to how
-    command-line tools write challenge files on different platforms.
-    """
     challenge_candidates = [submitted_challenge]
     for suffix in ["\n", "\r\n"]:
         candidate = f"{submitted_challenge}{suffix}"
@@ -270,16 +242,7 @@ def verify_signature_against_challenge(public_key, signature, submitted_challeng
     raise InvalidSignature
 
 
-def parse_session_iso_datetime(value):
-    """Normalize ISO timestamps from the session back into timezone-aware datetimes."""
-    parsed_value = timezone.datetime.fromisoformat(value)
-    if timezone.is_naive(parsed_value):
-        parsed_value = timezone.make_aware(parsed_value, timezone.get_current_timezone())
-    return parsed_value
-
-
 class ScopedAccessMixin(LoginRequiredMixin):
-    """Convenience mixin exposing the current user's effective role and organization."""
     def get_user_role(self):
         return get_user_role(self.request.user)
 
@@ -287,63 +250,33 @@ class ScopedAccessMixin(LoginRequiredMixin):
         return get_user_organization(self.request.user)
 
 
-class RoleRequiredMixin(ScopedAccessMixin, UserPassesTestMixin):
-    """Base mixin for role-gated pages that also logs denied access attempts."""
-    permission_denied_message = "You do not have permission to access this resource."
-    denied_event_type = "access_denied"
-    minimum_role = ROLE_MEMBER
-
-    def has_required_role(self):
-        raise NotImplementedError("Subclasses must implement has_required_role().")
+class ManagerRequiredMixin(ScopedAccessMixin, UserPassesTestMixin):
+    permission_denied_message = "Manager access is required to manage this resource."
 
     def test_func(self):
-        return self.has_required_role()
+        return can_manage_app(self.request.user)
 
     def handle_no_permission(self):
         if not self.request.user.is_authenticated:
             return super().handle_no_permission()
-        # Logging the denial here creates an audit trail even when the user never reaches the protected view body.
-        write_security_event(
-            self.request,
-            self.denied_event_type,
-            SecurityEvent.SEVERITY_WARNING,
-            self.permission_denied_message,
-        )
-        context = {
-            "required_role": role_display_name(self.minimum_role),
-            "access_denied_message": self.permission_denied_message,
-        }
-        return render(self.request, "task_app/access_denied.html", context, status=403)
+        write_security_event(self.request, "manager_access_denied", SecurityEvent.SEVERITY_WARNING, self.permission_denied_message)
+        return redirect_access_denied(self.request, ROLE_MANAGER, self.permission_denied_message)
 
 
-class ManagerRequiredMixin(RoleRequiredMixin):
-    permission_denied_message = "Manager access is required to manage this resource."
-    denied_event_type = "manager_access_denied"
-    minimum_role = ROLE_MANAGER
-
-    def has_required_role(self):
-        return can_manage_app(self.request.user)
-
-
-class AdminRequiredMixin(RoleRequiredMixin):
+class AdminRequiredMixin(ScopedAccessMixin, UserPassesTestMixin):
     permission_denied_message = "Administrator access is required to access this page."
-    denied_event_type = "admin_access_denied"
-    minimum_role = ROLE_ADMIN
 
-    def has_required_role(self):
+    def test_func(self):
         return is_admin(self.request.user)
 
-
-class UserScopedFormKwargsMixin:
-    """Pass the current user into forms so queryset scoping happens server-side."""
-    def get_form_kwargs(self):
-        kwargs = super().get_form_kwargs()
-        kwargs["user"] = self.request.user
-        return kwargs
+    def handle_no_permission(self):
+        if not self.request.user.is_authenticated:
+            return super().handle_no_permission()
+        write_security_event(self.request, "admin_access_denied", SecurityEvent.SEVERITY_WARNING, self.permission_denied_message)
+        return redirect_access_denied(self.request, ROLE_ADMIN, self.permission_denied_message)
 
 
 class AuditFormSuccessMixin:
-    """Write a standard audit record after successful create/update form submissions."""
     audit_action = AuditLog.ACTION_UPDATE
     audit_entity_type = "object"
 
@@ -361,7 +294,6 @@ class AuditFormSuccessMixin:
 
 
 class SignUpView(CreateView):
-    """Public signup page that immediately authenticates the newly created user."""
     template_name = "registration/signup.html"
     form_class = SignUpForm
     success_url = reverse_lazy("home")
@@ -387,7 +319,6 @@ class SignUpView(CreateView):
 
 
 class ProfileView(ScopedAccessMixin, TemplateView):
-    """Display the current user's profile details and edit form."""
     template_name = "task_app/profile.html"
 
     def get_context_data(self, **kwargs):
@@ -408,6 +339,10 @@ class ProfileUpdateView(ScopedAccessMixin, FormView):
     template_name = "task_app/profile.html"
     success_url = reverse_lazy("profile")
 
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["user"] = self.request.user
+        return kwargs
 
     def get_initial(self):
         return {
@@ -438,8 +373,70 @@ class ProfileUpdateView(ScopedAccessMixin, FormView):
         return self.render_to_response(self.get_context_data(form=form))
 
 
+class ManageUserListView(AdminRequiredMixin, ListView):
+    model = User
+    template_name = "task_app/manage_user_list.html"
+    context_object_name = "managed_users"
+
+    def get_queryset(self):
+        queryset = User.objects.select_related("profile", "profile__organization").annotate(
+            assigned_task_total=Count("assigned_tasks", distinct=True)
+        )
+        query = get_clean_query(self.request)
+        queryset = apply_text_search(
+            queryset,
+            query,
+            ["username", "first_name", "last_name", "email", "profile__organization__name"],
+        )
+        return queryset.order_by("username")
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["search_query"] = get_clean_query(self.request)
+        context["result_count"] = context["managed_users"].count()
+        return context
+
+
+class ManageUserDetailView(AdminRequiredMixin, DetailView):
+    model = User
+    template_name = "task_app/manage_user_detail.html"
+    context_object_name = "managed_user"
+
+    def get_queryset(self):
+        return User.objects.select_related("profile", "profile__organization")
+
+
+class ManageUserUpdateView(AdminRequiredMixin, AuditFormSuccessMixin, UpdateView):
+    model = UserProfile
+    template_name = "task_app/manage_user_form.html"
+    form_class = AdminUserManagementForm
+    audit_action = AuditLog.ACTION_UPDATE
+    audit_entity_type = "user_profile"
+
+    def get_object(self, queryset=None):
+        managed_user = get_object_or_404(User.objects.select_related("profile"), pk=self.kwargs["pk"])
+        profile, _ = UserProfile.objects.get_or_create(user=managed_user)
+        return profile
+
+    def get_success_url(self):
+        return reverse_lazy("manage-user-detail", kwargs={"pk": self.kwargs["pk"]})
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["user"] = self.request.user
+        return kwargs
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["managed_user"] = self.object.user
+        return context
+
+    def form_valid(self, form):
+        messages.success(self.request, f"Updated access settings for {self.object.user.username}.")
+        return super().form_valid(form)
+
+
 class HomePageView(ScopedAccessMixin, TemplateView):
-    """Dashboard view summarizing the current user's scoped workload."""
     template_name = "task_app/home.html"
 
     def get_context_data(self, **kwargs):
@@ -451,7 +448,6 @@ class HomePageView(ScopedAccessMixin, TemplateView):
         today = timezone.localdate()
         upcoming_window = today + timedelta(days=7)
 
-        # Computing dashboard metrics from the already-scoped queryset prevents data leakage across organizations.
         incomplete_tasks = scoped_tasks.filter(is_completed=False)
 
         context["organization_count"] = scoped_organizations.count()
@@ -483,7 +479,6 @@ class HomePageView(ScopedAccessMixin, TemplateView):
 
 
 class OrganizationListView(ScopedAccessMixin, ListView):
-    """Searchable organization listing restricted by role scope."""
     model = Organization
     template_name = "task_app/organization_list.html"
     context_object_name = "organizations"
@@ -510,7 +505,7 @@ class OrganizationDetailView(ScopedAccessMixin, DetailView):
         return organizations_for_user(self.request.user)
 
 
-class OrganizationCreateView(AdminRequiredMixin, UserScopedFormKwargsMixin, AuditFormSuccessMixin, CreateView):
+class OrganizationCreateView(AdminRequiredMixin, AuditFormSuccessMixin, CreateView):
     model = Organization
     template_name = "task_app/organization_form.html"
     form_class = OrganizationForm
@@ -518,9 +513,13 @@ class OrganizationCreateView(AdminRequiredMixin, UserScopedFormKwargsMixin, Audi
     audit_action = AuditLog.ACTION_CREATE
     audit_entity_type = "organization"
 
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["user"] = self.request.user
+        return kwargs
 
 
-class OrganizationUpdateView(AdminRequiredMixin, UserScopedFormKwargsMixin, AuditFormSuccessMixin, UpdateView):
+class OrganizationUpdateView(AdminRequiredMixin, AuditFormSuccessMixin, UpdateView):
     model = Organization
     template_name = "task_app/organization_form.html"
     form_class = OrganizationForm
@@ -531,10 +530,13 @@ class OrganizationUpdateView(AdminRequiredMixin, UserScopedFormKwargsMixin, Audi
     def get_queryset(self):
         return organizations_for_user(self.request.user)
 
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["user"] = self.request.user
+        return kwargs
 
 
 class ProjectListView(ScopedAccessMixin, ListView):
-    """Project listing that reuses the shared filter/query builder."""
     model = Project
     template_name = "task_app/project_list.html"
     context_object_name = "projects"
@@ -566,7 +568,7 @@ class ProjectDetailView(ScopedAccessMixin, DetailView):
         return projects_for_user(self.request.user).select_related("organization")
 
 
-class ProjectCreateView(ManagerRequiredMixin, UserScopedFormKwargsMixin, AuditFormSuccessMixin, CreateView):
+class ProjectCreateView(ManagerRequiredMixin, AuditFormSuccessMixin, CreateView):
     model = Project
     template_name = "task_app/project_form.html"
     form_class = ProjectForm
@@ -574,9 +576,13 @@ class ProjectCreateView(ManagerRequiredMixin, UserScopedFormKwargsMixin, AuditFo
     audit_action = AuditLog.ACTION_CREATE
     audit_entity_type = "project"
 
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["user"] = self.request.user
+        return kwargs
 
 
-class ProjectUpdateView(ManagerRequiredMixin, UserScopedFormKwargsMixin, AuditFormSuccessMixin, UpdateView):
+class ProjectUpdateView(ManagerRequiredMixin, AuditFormSuccessMixin, UpdateView):
     model = Project
     template_name = "task_app/project_form.html"
     form_class = ProjectForm
@@ -587,6 +593,10 @@ class ProjectUpdateView(ManagerRequiredMixin, UserScopedFormKwargsMixin, AuditFo
     def get_queryset(self):
         return projects_for_user(self.request.user)
 
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["user"] = self.request.user
+        return kwargs
 
 
 class TaskStatusListView(ScopedAccessMixin, ListView):
@@ -613,7 +623,7 @@ class TaskStatusDetailView(ScopedAccessMixin, DetailView):
     context_object_name = "status"
 
 
-class TaskStatusCreateView(ManagerRequiredMixin, UserScopedFormKwargsMixin, AuditFormSuccessMixin, CreateView):
+class TaskStatusCreateView(ManagerRequiredMixin, AuditFormSuccessMixin, CreateView):
     model = TaskStatus
     template_name = "task_app/taskstatus_form.html"
     form_class = TaskStatusForm
@@ -621,9 +631,13 @@ class TaskStatusCreateView(ManagerRequiredMixin, UserScopedFormKwargsMixin, Audi
     audit_action = AuditLog.ACTION_CREATE
     audit_entity_type = "task_status"
 
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["user"] = self.request.user
+        return kwargs
 
 
-class TaskStatusUpdateView(ManagerRequiredMixin, UserScopedFormKwargsMixin, AuditFormSuccessMixin, UpdateView):
+class TaskStatusUpdateView(ManagerRequiredMixin, AuditFormSuccessMixin, UpdateView):
     model = TaskStatus
     template_name = "task_app/taskstatus_form.html"
     form_class = TaskStatusForm
@@ -631,10 +645,13 @@ class TaskStatusUpdateView(ManagerRequiredMixin, UserScopedFormKwargsMixin, Audi
     audit_action = AuditLog.ACTION_UPDATE
     audit_entity_type = "task_status"
 
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["user"] = self.request.user
+        return kwargs
 
 
 class TaskListView(ScopedAccessMixin, ListView):
-    """Task listing with filter summary counts for the UI."""
     model = Task
     template_name = "task_app/task_list.html"
     context_object_name = "tasks"
@@ -683,7 +700,7 @@ class TaskDetailView(ScopedAccessMixin, DetailView):
         return tasks_for_user(self.request.user).select_related("project", "status", "assigned_to")
 
 
-class TaskCreateView(ManagerRequiredMixin, UserScopedFormKwargsMixin, AuditFormSuccessMixin, CreateView):
+class TaskCreateView(ManagerRequiredMixin, AuditFormSuccessMixin, CreateView):
     model = Task
     template_name = "task_app/task_form.html"
     form_class = TaskForm
@@ -691,9 +708,13 @@ class TaskCreateView(ManagerRequiredMixin, UserScopedFormKwargsMixin, AuditFormS
     audit_action = AuditLog.ACTION_CREATE
     audit_entity_type = "task"
 
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["user"] = self.request.user
+        return kwargs
 
 
-class TaskUpdateView(ManagerRequiredMixin, UserScopedFormKwargsMixin, AuditFormSuccessMixin, UpdateView):
+class TaskUpdateView(ManagerRequiredMixin, AuditFormSuccessMixin, UpdateView):
     model = Task
     template_name = "task_app/task_form.html"
     form_class = TaskForm
@@ -704,10 +725,13 @@ class TaskUpdateView(ManagerRequiredMixin, UserScopedFormKwargsMixin, AuditFormS
     def get_queryset(self):
         return tasks_for_user(self.request.user)
 
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["user"] = self.request.user
+        return kwargs
 
 
 class SecurityDashboardView(AdminRequiredMixin, TemplateView):
-    """Aggregate security and audit metrics for administrators."""
     template_name = "task_app/security_dashboard.html"
 
     def get_context_data(self, **kwargs):
@@ -719,7 +743,6 @@ class SecurityDashboardView(AdminRequiredMixin, TemplateView):
         denied_audit_logs = audit_logs.filter(action=AuditLog.ACTION_DENIED)
         warning_events = security_events.filter(severity=SecurityEvent.SEVERITY_WARNING)
         error_events = security_events.filter(severity=SecurityEvent.SEVERITY_ERROR)
-        # Protected-access events are tracked separately because they represent the app's highest-sensitivity workflow.
         protected_events = security_events.filter(
             Q(event_type__startswith="protected_") | Q(event_type__startswith="signature_")
         )
@@ -810,7 +833,7 @@ class SecurityEventListView(AdminRequiredMixin, ListView):
         context["window_value"] = get_recent_window_days(self.request)
         context["result_count"] = filtered_queryset.count()
         context["severity_options"] = SecurityEvent.SEVERITY_CHOICES
-        context["event_type_options"] = list(filtered_queryset.order_by("event_type").values_list("event_type", flat=True).distinct())
+        context["event_type_options"] = list(SecurityEvent.objects.order_by("event_type").values_list("event_type", flat=True).distinct())
         return context
 
 
@@ -878,7 +901,6 @@ class ProtectedAccessHistoryView(AdminRequiredMixin, TemplateView):
 
 
 class OrganizationExportCsvView(ScopedAccessMixin, View):
-    """Export the current organization view to CSV without bypassing user scoping."""
     def get(self, request, *args, **kwargs):
         organizations = organizations_for_user(request.user).annotate(project_total=Count("projects", distinct=True))
         query = get_clean_query(request)
@@ -911,7 +933,6 @@ class OrganizationExportCsvView(ScopedAccessMixin, View):
 
 
 class ProjectExportCsvView(ScopedAccessMixin, View):
-    """Export the filtered project listing to CSV."""
     def get(self, request, *args, **kwargs):
         projects = _project_filtered_queryset(request)
 
@@ -950,7 +971,6 @@ class ProjectExportCsvView(ScopedAccessMixin, View):
 
 
 class TaskExportCsvView(ScopedAccessMixin, View):
-    """Export the filtered task listing to CSV."""
     def get(self, request, *args, **kwargs):
         tasks = _task_filtered_queryset(request)
 
@@ -993,8 +1013,6 @@ class TaskExportCsvView(ScopedAccessMixin, View):
 
 
 def issue_secure_challenge(request):
-    """Create a fresh short-lived challenge and store it in the user's session."""
-    # token_urlsafe gives a challenge that is random enough for security use while still being easy to move through a browser/CLI flow.
     challenge = secrets.token_urlsafe(32)
     issued_at = timezone.now().isoformat()
     request.session["secure_challenge"] = challenge
@@ -1004,7 +1022,6 @@ def issue_secure_challenge(request):
 
 
 def secure_access_view(request):
-    """Require managers/admins to prove possession of the signing key before report access."""
     if not request.user.is_authenticated:
         return redirect(f"{settings.LOGIN_URL}?next={request.path}")
     if not can_manage_app(request.user):
@@ -1022,8 +1039,9 @@ def secure_access_view(request):
             issue_secure_challenge(request)
             return redirect("secure-access")
 
-        issued_at_dt = parse_session_iso_datetime(issued_at)
-        # Keeping the challenge short-lived limits replay risk if someone copies an old challenge value.
+        issued_at_dt = timezone.datetime.fromisoformat(issued_at)
+        if timezone.is_naive(issued_at_dt):
+            issued_at_dt = timezone.make_aware(issued_at_dt, timezone.get_current_timezone())
         if timezone.now() > issued_at_dt + timedelta(minutes=5):
             write_security_event(request, "signature_challenge_expired", SecurityEvent.SEVERITY_WARNING, "Secure challenge expired before signature verification.")
             messages.error(request, "Your secure challenge expired. Please sign the new challenge.")
@@ -1033,7 +1051,6 @@ def secure_access_view(request):
         try:
             public_key_data = settings.SECURE_ACCESS_PUBLIC_KEY_PATH.read_bytes()
             public_key = load_pem_public_key(public_key_data)
-            # Removing whitespace avoids false negatives when users paste multiline Base64 signatures from terminals.
             normalized_signature = "".join(signature_b64.split())
             signature = base64.b64decode(normalized_signature)
             verified_candidate = verify_signature_against_challenge(public_key, signature, submitted_challenge)
@@ -1070,7 +1087,6 @@ def secure_access_view(request):
 
 
 def protected_report_view(request):
-    """Show the protected task report only during a recent verified session window."""
     if not request.user.is_authenticated:
         return redirect(f"{settings.LOGIN_URL}?next={request.path}")
     if not can_manage_app(request.user):
@@ -1082,8 +1098,9 @@ def protected_report_view(request):
         messages.error(request, "You must verify a signed challenge before accessing this report.")
         return redirect("secure-access")
 
-    verified_at = parse_session_iso_datetime(verified_at_str)
-    # Verification is intentionally time-limited so access is temporary rather than persistent for the whole login session.
+    verified_at = timezone.datetime.fromisoformat(verified_at_str)
+    if timezone.is_naive(verified_at):
+        verified_at = timezone.make_aware(verified_at, timezone.get_current_timezone())
     if timezone.now() > verified_at + timedelta(minutes=10):
         request.session.pop("secure_verified_at", None)
         write_security_event(request, "protected_report_verification_expired", SecurityEvent.SEVERITY_WARNING, "Protected report access window expired.")
