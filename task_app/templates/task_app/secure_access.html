@@ -20,6 +20,7 @@
                 <textarea class="challenge-box" id="challengeValue" rows="3" readonly>{{ challenge_message }}</textarea>
                 <div class="challenge-actions">
                     <button type="button" class="secondary-button" id="copyChallengeButton">Copy challenge</button>
+                    <button type="button" class="secondary-button" id="downloadChallengeButton">Download challenge</button>
                     <span class="challenge-hint">Sign the exact value shown above. If you use a terminal, use <code>echo -n</code> so no extra newline is added.</span>
                 </div>
             </div>
@@ -44,24 +45,47 @@
 
 <script>
     const copyChallengeButton = document.getElementById("copyChallengeButton");
+    const downloadChallengeButton = document.getElementById("downloadChallengeButton");
     const challengeValue = document.getElementById("challengeValue");
+
+    function showTemporaryButtonText(button, text, resetText) {
+        if (!button) {
+            return;
+        }
+
+        button.textContent = text;
+        setTimeout(function () {
+            button.textContent = resetText;
+        }, 1500);
+    }
 
     if (copyChallengeButton && challengeValue) {
         copyChallengeButton.addEventListener("click", async function () {
             try {
                 await navigator.clipboard.writeText(challengeValue.value);
-                copyChallengeButton.textContent = "Copied";
-                setTimeout(function () {
-                    copyChallengeButton.textContent = "Copy challenge";
-                }, 1500);
+                showTemporaryButtonText(copyChallengeButton, "Copied", "Copy challenge");
             } catch (error) {
                 challengeValue.select();
                 document.execCommand("copy");
-                copyChallengeButton.textContent = "Copied";
-                setTimeout(function () {
-                    copyChallengeButton.textContent = "Copy challenge";
-                }, 1500);
+                showTemporaryButtonText(copyChallengeButton, "Copied", "Copy challenge");
             }
+        });
+    }
+
+    if (downloadChallengeButton && challengeValue) {
+        downloadChallengeButton.addEventListener("click", function () {
+            const blob = new Blob([challengeValue.value], { type: "text/plain;charset=utf-8" });
+            const downloadUrl = window.URL.createObjectURL(blob);
+            const temporaryLink = document.createElement("a");
+
+            temporaryLink.href = downloadUrl;
+            temporaryLink.download = "challenge.txt";
+            document.body.appendChild(temporaryLink);
+            temporaryLink.click();
+            document.body.removeChild(temporaryLink);
+            window.URL.revokeObjectURL(downloadUrl);
+
+            showTemporaryButtonText(downloadChallengeButton, "Downloaded", "Download challenge");
         });
     }
 </script>
