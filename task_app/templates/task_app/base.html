@@ -1742,6 +1742,11 @@
             
                     <a href="{% url 'protected-report' %}">Protected Report</a>
                     <span class="nav-separator">|</span>
+
+                    {% if current_user_role == 'ADMIN' %}
+                        <a href="{% url 'security-dashboard' %}">Security Dashboard</a>
+                        <span class="nav-separator">|</span>
+                    {% endif %}
             
                     <a href="/admin/">Admin</a>
                     <span class="nav-separator">|</span>
