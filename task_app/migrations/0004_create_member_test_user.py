@@ -1,3 +1,4 @@
+from django.contrib.auth.hashers import make_password
 from django.db import migrations
 
 
@@ -13,6 +14,7 @@ def create_or_update_member_test_user(apps, schema_editor):
         username=username,
         defaults={
             "email": email,
+            "password": make_password(raw_password),
             "is_staff": False,
             "is_superuser": False,
             "is_active": True,
@@ -21,12 +23,11 @@ def create_or_update_member_test_user(apps, schema_editor):
 
     if not created:
         user.email = email
+        user.password = make_password(raw_password)
         user.is_staff = False
         user.is_superuser = False
         user.is_active = True
-
-    user.set_password(raw_password)
-    user.save()
+        user.save()
 
     profile, _ = UserProfile.objects.get_or_create(user=user)
     profile.role = "MEMBER"
