@@ -1,4 +1,5 @@
 import base64
+import binascii
 import csv
 import secrets
 from datetime import timedelta
@@ -16,6 +17,7 @@ from django.db.models.functions import TruncDate
 from django.http import Http404, HttpResponse
 from django.shortcuts import redirect, render
 from django.urls import reverse, reverse_lazy
+from django.utils.http import urlencode
 from django.utils import timezone
 from django.views import View
 from django.views.generic import CreateView, DetailView, FormView, ListView, TemplateView, UpdateView
@@ -180,6 +182,64 @@ def apply_recent_window(queryset, field_name, window_value):
 
 def is_protected_resource_event(event_type):
     return event_type.startswith("protected_") or event_type.startswith("signature_")
+
+
+def role_display_name(role_value):
+    role_map = {
+        ROLE_ADMIN: "Administrator",
+        ROLE_MANAGER: "Manager",
+        "MEMBER": "Member",
+        None: "User",
+    }
+    return role_map.get(role_value, str(role_value).replace("_", " ").title())
+
+
+def redirect_access_denied(request, minimum_role, message=None):
+    role_name = role_display_name(minimum_role)
+    denied_message = message or f"{role_name} access is required to access this page."
+    target_url = reverse("access-denied")
+    query_string = urlencode({"required_role": minimum_role, "message": denied_message})
+    return redirect(f"{target_url}?{query_string}")
+
+
+def access_denied_view(request):
+    required_role = request.GET.get("required_role", "")
+    context = {
+        "required_role": role_display_name(required_role),
+        "access_denied_message": request.GET.get("message") or "You do not have access to this page.",
+    }
+    return render(request, "task_app/access_denied.html", context, status=403)
+
+
+def admin_portal_redirect_view(request):
+    if not request.user.is_authenticated:
+        return redirect(f"{settings.LOGIN_URL}?next={request.path}")
+    if not is_admin(request.user):
+        write_security_event(request, "admin_access_denied", SecurityEvent.SEVERITY_WARNING, "User lacked administrator access for the admin portal.")
+        return redirect_access_denied(request, ROLE_ADMIN, "Administrator access is required to access the admin portal.")
+    return redirect("/admin/")
+
+
+def verify_signature_against_challenge(public_key, signature, submitted_challenge):
+    challenge_candidates = [submitted_challenge]
+    for suffix in ["\n", "\r\n"]:
+        candidate = f"{submitted_challenge}{suffix}"
+        if candidate not in challenge_candidates:
+            challenge_candidates.append(candidate)
+
+    for candidate in challenge_candidates:
+        try:
+            public_key.verify(
+                signature,
+                candidate.encode("utf-8"),
+                padding.PKCS1v15(),
+                hashes.SHA256(),
+            )
+            return candidate
+        except InvalidSignature:
+            continue
+
+    raise InvalidSignature
 
 
 class ScopedAccessMixin(LoginRequiredMixin):
