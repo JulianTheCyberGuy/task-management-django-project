@@ -102,6 +102,10 @@
             flex-wrap: wrap;
         }
 
+        .nav-user {
+            position: relative;
+        }
+
         .nav-right {
             justify-content: flex-end;
             margin-left: auto;
@@ -162,7 +166,8 @@
         }
 
         .logout-form {
-            display: inline;
+            display: inline-flex;
+            align-items: center;
             margin: 0;
             max-width: none;
             background: none;
@@ -172,6 +177,7 @@
         }
 
         .logout-form button {
+            appearance: none;
             background: transparent;
             border: none;
             color: white;
@@ -183,6 +189,11 @@
             line-height: 1.2;
             display: inline-flex;
             align-items: center;
+            justify-content: center;
+            min-height: 34px;
+            margin: 0;
+            box-shadow: none;
+            vertical-align: middle;
         }
 
         .logout-form button:hover {
@@ -190,11 +201,42 @@
             transform: none;
         }
 
-        .role-chip-hint {
-            font-size: 0.74rem;
-            color: rgba(255, 255, 255, 0.82);
-            font-weight: 600;
-            letter-spacing: 0.01em;
+        .role-hint-bubble {
+            position: absolute;
+            top: calc(100% + 0.45rem);
+            left: 50%;
+            transform: translateX(-50%);
+            min-width: 190px;
+            max-width: 240px;
+            padding: 0.55rem 0.75rem;
+            border-radius: 12px;
+            background: #ffffff;
+            color: var(--primary-dark);
+            font-size: 0.78rem;
+            font-weight: 700;
+            line-height: 1.35;
+            box-shadow: 0 12px 28px rgba(0, 0, 0, 0.16);
+            border: 1px solid rgba(31, 60, 136, 0.12);
+            z-index: 25;
+            display: none;
+            text-align: center;
+        }
+
+        .role-hint-bubble.show {
+            display: block;
+        }
+
+        .role-hint-bubble::before {
+            content: "";
+            position: absolute;
+            top: -8px;
+            left: 50%;
+            transform: translateX(-50%) rotate(45deg);
+            width: 14px;
+            height: 14px;
+            background: #ffffff;
+            border-left: 1px solid rgba(31, 60, 136, 0.12);
+            border-top: 1px solid rgba(31, 60, 136, 0.12);
         }
 
         .workbench-card .related-card-copy {
@@ -1413,10 +1455,13 @@
                                 id="roleInfoTrigger"
                                 data-role-code="{{ current_user_role|default:'' }}"
                                 data-role-label="{{ current_user_role_label }}"
+                                aria-describedby="roleHintBubble"
                             >
                                 {{ current_user_role_label }}
                             </button>
-                            <span class="role-chip-hint">Click role for permissions</span>
+                            <div class="role-hint-bubble" id="roleHintBubble" role="status" aria-live="polite">
+                                Click your role to see what you can do in the app.
+                            </div>
                         {% endif %}
                     </div>
 
@@ -1526,6 +1571,8 @@
         const roleInfoTitle = document.getElementById("roleInfoTitle");
         const roleInfoSummary = document.getElementById("roleInfoSummary");
         const roleInfoList = document.getElementById("roleInfoList");
+        const roleHintBubble = document.getElementById("roleHintBubble");
+        const roleHintDismissedKey = "roleHintDismissed";
 
         const roleContentMap = {
             ADMIN: {
@@ -1557,8 +1604,22 @@
             }
         };
 
+        function dismissRoleHint() {
+            localStorage.setItem(roleHintDismissedKey, "true");
+            if (roleHintBubble) {
+                roleHintBubble.classList.remove("show");
+            }
+        }
+
+        if (roleInfoTrigger && roleHintBubble && !localStorage.getItem(roleHintDismissedKey)) {
+            window.addEventListener("load", () => {
+                roleHintBubble.classList.add("show");
+            });
+        }
+
         function openRoleInfoModal() {
             if (!roleInfoTrigger || !roleInfoModal) return;
+            dismissRoleHint();
             const roleCode = roleInfoTrigger.dataset.roleCode || "";
             const roleLabel = roleInfoTrigger.dataset.roleLabel || "Role";
             const content = roleContentMap[roleCode] || {

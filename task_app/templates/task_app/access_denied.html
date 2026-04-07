@@ -1,6 +1,13 @@
 {% extends "task_app/base.html" %}
 
 {% block content %}
+<script>
+    try {
+        localStorage.setItem("roleHintDismissed", "true");
+    } catch (error) {
+        console.warn("Unable to update role hint dismissal state.", error);
+    }
+</script>
 <div class="denied-shell">
     <div class="denied-card">
         <h2 class="denied-title">Access denied</h2>
