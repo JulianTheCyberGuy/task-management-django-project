@@ -1,58 +1,101 @@
 {% extends "task_app/base.html" %}
 
 {% block content %}
-<div class="page-header">
-    <div class="page-header-copy">
-        <h2 class="page-title">Projects</h2>
-        <p class="page-subtitle">
-            Manage the projects in your system and quickly see which organization they belong to and whether they are active.
-        </p>
+<div class="detail-shell">
+    <div class="detail-card">
+        <div class="detail-topbar">
+            <div class="detail-title-group">
+                <h2 class="detail-title">{{ project.name }}</h2>
+                <p class="detail-subtitle">
+                    Review this project, its organization, schedule, activity status, and related tasks.
+                </p>
+            </div>
+
+            <div class="page-toolbar">
+                {% if current_user_role == 'ADMIN' or current_user_role == 'MANAGER' %}
+                    <a class="button" href="{% url 'project-edit' project.pk %}">Edit Project</a>
+                {% endif %}
+                <a class="text-link-action" href="{% url 'project-list' %}">Back to Projects</a>
+            </div>
+        </div>
+
+        <div class="pill-row" style="margin-bottom: 1rem;">
+            <span class="boolean-pill {% if project.is_active %}true{% else %}false{% endif %}">
+                {% if project.is_active %}Active{% else %}Inactive{% endif %}
+            </span>
+        </div>
+
+        <div class="detail-grid">
+            <div class="detail-item">
+                <span class="detail-label">Organization</span>
+                <div class="detail-value">{{ project.organization.name }}</div>
+            </div>
+
+            <div class="detail-item">
+                <span class="detail-label">Start Date</span>
+                <div class="detail-value">{{ project.start_date|default:"Not scheduled" }}</div>
+            </div>
+
+            <div class="detail-item">
+                <span class="detail-label">End Date</span>
+                <div class="detail-value">{{ project.end_date|default:"Not scheduled" }}</div>
+            </div>
+
+            <div class="detail-item">
+                <span class="detail-label">Tasks</span>
+                <div class="detail-value">{{ project.tasks.count }} task{{ project.tasks.count|pluralize }}</div>
+            </div>
+
+            <div class="detail-item full-width">
+                <span class="detail-label">Description</span>
+                <div class="detail-value">{{ project.description|default:"No description provided." }}</div>
+            </div>
+        </div>
+
+        <div class="related-section">
+            <h3 class="related-section-title">Tasks in This Project</h3>
+
+            {% if project.tasks.all %}
+                <div class="related-stack">
+                    {% for task in project.tasks.all %}
+                        <div class="related-card">
+                            <h4 class="related-card-title">{{ task.title }}</h4>
+
+                            <div class="pill-row" style="margin-bottom: 0.5rem;">
+                                <span class="status-pill">{{ task.status.name }}</span>
+                                <span class="priority-pill priority-{{ task.priority|lower }}">{{ task.get_priority_display }}</span>
+                                <span class="boolean-pill {% if task.is_completed %}true{% else %}false{% endif %}">
+                                    {% if task.is_completed %}Completed{% else %}Open{% endif %}
+                                </span>
+                            </div>
+
+                            <p class="related-card-copy">
+                                {{ task.description|default:"No description provided." }}
+                            </p>
+
+                            <div class="page-toolbar">
+                                <span class="related-card-copy">
+                                    {% if task.assigned_to %}
+                                        Assigned to {{ task.assigned_to }}
+                                    {% else %}
+                                        Unassigned
+                                    {% endif %}
+                                    {% if task.due_date %}
+                                        • Due {{ task.due_date }}
+                                    {% endif %}
+                                </span>
+                                <a class="text-link-action" href="{% url 'task-detail' task.pk %}">View Task</a>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div class="empty-state-card">
+                    <h3>No tasks in this project yet</h3>
+                    <p>Once tasks are added to this project, they will appear here.</p>
+                </div>
+            {% endif %}
+        </div>
     </div>
-    <a class="button" href="{% url 'project-add' %}">Add Project</a>
 </div>
-
-{% if projects %}
-    <div class="entity-grid">
-        {% for project in projects %}
-            <article class="entity-card">
-                <div class="entity-card-header">
-                    <h3 class="entity-card-title">{{ project.name }}</h3>
-                    <span class="boolean-pill {% if project.is_active %}true{% else %}false{% endif %}">
-                        {% if project.is_active %}Active{% else %}Inactive{% endif %}
-                    </span>
-                </div>
-
-                <div class="entity-card-body">
-                    <div class="entity-meta-list">
-                        <div class="entity-meta-item">
-                            <span class="entity-meta-label">Organization</span>
-                            <span class="entity-meta-value">{{ project.organization.name }}</span>
-                        </div>
-
-                        <div class="entity-meta-item">
-                            <span class="entity-meta-label">Description</span>
-                            <span class="entity-meta-value">{{ project.description|default:"No description provided." }}</span>
-                        </div>
-
-                        <div class="entity-meta-item">
-                            <span class="entity-meta-label">Tasks</span>
-                            <span class="entity-meta-value">{{ project.tasks.count }} task{{ project.tasks.count|pluralize }}</span>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="entity-card-actions">
-                    <a class="button" href="{% url 'project-detail' project.pk %}">View Details</a>
-                    <a class="text-link-action" href="{% url 'project-edit' project.pk %}">Edit</a>
-                </div>
-            </article>
-        {% endfor %}
-    </div>
-{% else %}
-    <div class="empty-state-card">
-        <h3>No projects yet</h3>
-        <p>Create a project to begin organizing tasks under an organization.</p>
-        <a class="button" href="{% url 'project-add' %}">Create Project</a>
-    </div>
-{% endif %}
 {% endblock %}
