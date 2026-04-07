@@ -8,8 +8,10 @@
             Search and review the workflow states used to organize tasks across the application.
         </p>
     </div>
-    {% if user_role == 'ADMIN' or user_role == 'MANAGER' %}
-        <a class="button" href="{% url 'taskstatus-add' %}">Add Task Status</a>
+    {% if current_user_role == 'ADMIN' or current_user_role == 'MANAGER' %}
+        <div class="page-toolbar">
+            <a class="button" href="{% url 'taskstatus-add' %}">Add Task Status</a>
+        </div>
     {% endif %}
 </div>
 
@@ -53,7 +55,7 @@
 
                 <div class="entity-card-actions">
                     <a class="button" href="{% url 'taskstatus-detail' status.pk %}">View Details</a>
-                    {% if user_role == 'ADMIN' or user_role == 'MANAGER' %}
+                    {% if current_user_role == 'ADMIN' or current_user_role == 'MANAGER' %}
                         <a class="text-link-action" href="{% url 'taskstatus-edit' status.pk %}">Edit</a>
                     {% endif %}
                 </div>

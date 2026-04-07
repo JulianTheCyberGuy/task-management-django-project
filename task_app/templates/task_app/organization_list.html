@@ -10,7 +10,7 @@
     </div>
     <div class="page-toolbar">
         <a class="button secondary-button" href="{% url 'organization-export-csv' %}{% if request.GET.urlencode %}?{{ request.GET.urlencode }}{% endif %}">Export CSV</a>
-        {% if user_role == 'ADMIN' %}
+        {% if current_user_role == 'ADMIN' %}
             <a class="button" href="{% url 'organization-add' %}">Add Organization</a>
         {% endif %}
     </div>
@@ -56,7 +56,7 @@
 
                 <div class="entity-card-actions">
                     <a class="button" href="{% url 'organization-detail' organization.pk %}">View Details</a>
-                    {% if user_role == 'ADMIN' %}
+                    {% if current_user_role == 'ADMIN' %}
                         <a class="text-link-action" href="{% url 'organization-edit' organization.pk %}">Edit</a>
                     {% endif %}
                 </div>
