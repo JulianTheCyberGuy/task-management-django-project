@@ -5,10 +5,48 @@
     <div class="page-header-copy">
         <h2 class="page-title">Projects</h2>
         <p class="page-subtitle">
-            Manage the projects in your system and quickly see which organization they belong to and whether they are active.
+            Search projects, filter by activity, and sort by schedule to quickly find the work that matters most.
         </p>
     </div>
-    <a class="button" href="{% url 'project-add' %}">Add Project</a>
+    {% if user_role == 'ADMIN' or user_role == 'MANAGER' %}
+        <a class="button" href="{% url 'project-add' %}">Add Project</a>
+    {% endif %}
+</div>
+
+<div class="filter-card">
+    <form method="get" class="unstyled-form filter-form-grid projects-filter-grid">
+        <div class="filter-field filter-search-span">
+            <label for="project_q">Search</label>
+            <input type="text" id="project_q" name="q" value="{{ search_query }}" placeholder="Search project name, description, or organization">
+        </div>
+
+        <div class="filter-field">
+            <label for="project_active">Activity</label>
+            <select id="project_active" name="active">
+                <option value="all" {% if active_filter == 'all' %}selected{% endif %}>All projects</option>
+                <option value="active" {% if active_filter == 'active' %}selected{% endif %}>Active only</option>
+                <option value="inactive" {% if active_filter == 'inactive' %}selected{% endif %}>Inactive only</option>
+            </select>
+        </div>
+
+        <div class="filter-field">
+            <label for="project_sort">Sort By</label>
+            <select id="project_sort" name="sort">
+                {% for option_value, option_label in sort_options %}
+                    <option value="{{ option_value }}" {% if sort_value == option_value %}selected{% endif %}>{{ option_label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="filter-actions">
+            <button type="submit">Apply Filters</button>
+            <a class="button secondary-button" href="{% url 'project-list' %}">Reset</a>
+        </div>
+    </form>
+</div>
+
+<div class="filter-summary-row">
+    <span class="badge">{{ result_count }} result{{ result_count|pluralize }}</span>
 </div>
 
 {% if projects %}
@@ -22,37 +60,35 @@
                     </span>
                 </div>
 
-                <div class="entity-card-body">
-                    <div class="entity-meta-list">
-                        <div class="entity-meta-item">
-                            <span class="entity-meta-label">Organization</span>
-                            <span class="entity-meta-value">{{ project.organization.name }}</span>
-                        </div>
-
-                        <div class="entity-meta-item">
-                            <span class="entity-meta-label">Description</span>
-                            <span class="entity-meta-value">{{ project.description|default:"No description provided." }}</span>
-                        </div>
-
-                        <div class="entity-meta-item">
-                            <span class="entity-meta-label">Tasks</span>
-                            <span class="entity-meta-value">{{ project.tasks.count }} task{{ project.tasks.count|pluralize }}</span>
-                        </div>
+                <div class="entity-meta-list">
+                    <div class="entity-meta-item">
+                        <span class="entity-meta-label">Organization</span>
+                        <span class="entity-meta-value">{{ project.organization.name }}</span>
+                    </div>
+                    <div class="entity-meta-item">
+                        <span class="entity-meta-label">Description</span>
+                        <span class="entity-meta-value">{{ project.description|default:'No description provided.' }}</span>
+                    </div>
+                    <div class="entity-meta-item">
+                        <span class="entity-meta-label">Tasks</span>
+                        <span class="entity-meta-value">{{ project.task_total }} task{{ project.task_total|pluralize }}</span>
                     </div>
                 </div>
 
                 <div class="entity-card-actions">
                     <a class="button" href="{% url 'project-detail' project.pk %}">View Details</a>
-                    <a class="text-link-action" href="{% url 'project-edit' project.pk %}">Edit</a>
+                    {% if user_role == 'ADMIN' or user_role == 'MANAGER' %}
+                        <a class="text-link-action" href="{% url 'project-edit' project.pk %}">Edit</a>
+                    {% endif %}
                 </div>
             </article>
         {% endfor %}
     </div>
 {% else %}
     <div class="empty-state-card">
-        <h3>No projects yet</h3>
-        <p>Create a project to begin organizing tasks under an organization.</p>
-        <a class="button" href="{% url 'project-add' %}">Create Project</a>
+        <h3>No projects matched your filters</h3>
+        <p>Try resetting the filters or broadening your search terms.</p>
+        <a class="button" href="{% url 'project-list' %}">Clear Filters</a>
     </div>
 {% endif %}
 {% endblock %}

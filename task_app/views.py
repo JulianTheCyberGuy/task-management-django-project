@@ -30,6 +30,18 @@ from .forms import OrganizationForm, ProfileUpdateForm, ProjectForm, SignUpForm,
 from .models import AuditLog, Organization, Project, SecurityEvent, Task, TaskStatus
 
 
+SORT_LABELS = {
+    "name": "Name",
+    "recent": "Recently Updated",
+    "start": "Start Date",
+    "end": "End Date",
+    "due": "Due Date",
+    "priority": "Priority",
+    "status": "Status",
+    "title": "Title",
+}
+
+
 def get_client_ip(request):
     forwarded = request.META.get("HTTP_X_FORWARDED_FOR")
     if forwarded:
@@ -56,6 +68,19 @@ def write_security_event(request, event_type, severity, details):
         ip_address=get_client_ip(request),
         details=details,
     )
+
+
+def get_clean_query(request, key="q"):
+    return request.GET.get(key, "").strip()
+
+
+def apply_text_search(queryset, query, fields):
+    if not query:
+        return queryset
+    search_filter = Q()
+    for field in fields:
+        search_filter |= Q(**{f"{field}__icontains": query})
+    return queryset.filter(search_filter)
 
 
 class ScopedAccessMixin(LoginRequiredMixin):
@@ -186,14 +211,28 @@ class HomePageView(ScopedAccessMixin, TemplateView):
         scoped_organizations = organizations_for_user(user)
         scoped_projects = projects_for_user(user)
         scoped_tasks = tasks_for_user(user)
+        today = timezone.localdate()
+        upcoming_window = today + timedelta(days=7)
+
+        incomplete_tasks = scoped_tasks.filter(is_completed=False)
 
         context["organization_count"] = scoped_organizations.count()
         context["project_count"] = scoped_projects.count()
         context["status_count"] = TaskStatus.objects.count()
         context["task_count"] = scoped_tasks.count()
         context["completed_task_count"] = scoped_tasks.filter(is_completed=True).count()
-        context["incomplete_task_count"] = scoped_tasks.filter(is_completed=False).count()
-        context["recent_tasks"] = scoped_tasks.select_related("project", "status").order_by("-id")[:5]
+        context["incomplete_task_count"] = incomplete_tasks.count()
+        context["active_project_count"] = scoped_projects.filter(is_active=True).count()
+        context["overdue_task_count"] = incomplete_tasks.filter(due_date__lt=today).count()
+        context["due_today_task_count"] = incomplete_tasks.filter(due_date=today).count()
+        context["due_soon_task_count"] = incomplete_tasks.filter(due_date__gt=today, due_date__lte=upcoming_window).count()
+        context["high_priority_open_task_count"] = incomplete_tasks.filter(priority=Task.PRIORITY_HIGH).count()
+        context["recent_tasks"] = scoped_tasks.select_related("project", "status").order_by("-updated_at")[:5]
+        context["overdue_tasks"] = incomplete_tasks.select_related("project", "status").filter(due_date__lt=today).order_by("due_date", "title")[:5]
+        context["due_soon_tasks"] = incomplete_tasks.select_related("project", "status").filter(
+            due_date__gte=today,
+            due_date__lte=upcoming_window,
+        ).order_by("due_date", "title")[:5]
         context["status_summary"] = (
             TaskStatus.objects.annotate(
                 task_total=Count("tasks", filter=Q(tasks__in=scoped_tasks))
@@ -211,7 +250,16 @@ class OrganizationListView(ScopedAccessMixin, ListView):
     context_object_name = "organizations"
 
     def get_queryset(self):
-        return organizations_for_user(self.request.user).order_by("name")
+        queryset = organizations_for_user(self.request.user).annotate(project_total=Count("projects", distinct=True))
+        query = get_clean_query(self.request)
+        queryset = apply_text_search(queryset, query, ["name", "contact_email", "phone_number"])
+        return queryset.order_by("name")
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["search_query"] = get_clean_query(self.request)
+        context["result_count"] = context["organizations"].count()
+        return context
 
 
 class OrganizationDetailView(ScopedAccessMixin, DetailView):
@@ -260,7 +308,39 @@ class ProjectListView(ScopedAccessMixin, ListView):
     context_object_name = "projects"
 
     def get_queryset(self):
-        return projects_for_user(self.request.user).select_related("organization").order_by("name")
+        queryset = projects_for_user(self.request.user).select_related("organization").annotate(task_total=Count("tasks", distinct=True))
+        query = get_clean_query(self.request)
+        active_filter = self.request.GET.get("active", "all")
+        sort_value = self.request.GET.get("sort", "name")
+
+        queryset = apply_text_search(queryset, query, ["name", "description", "organization__name"])
+
+        if active_filter == "active":
+            queryset = queryset.filter(is_active=True)
+        elif active_filter == "inactive":
+            queryset = queryset.filter(is_active=False)
+
+        sort_map = {
+            "name": ["name"],
+            "recent": ["-created_at", "name"],
+            "start": ["start_date", "name"],
+            "end": ["end_date", "name"],
+        }
+        return queryset.order_by(*sort_map.get(sort_value, ["name"]))
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["search_query"] = get_clean_query(self.request)
+        context["active_filter"] = self.request.GET.get("active", "all")
+        context["sort_value"] = self.request.GET.get("sort", "name")
+        context["result_count"] = context["projects"].count()
+        context["sort_options"] = [
+            ("name", SORT_LABELS["name"]),
+            ("recent", SORT_LABELS["recent"]),
+            ("start", SORT_LABELS["start"]),
+            ("end", SORT_LABELS["end"]),
+        ]
+        return context
 
 
 class ProjectDetailView(ScopedAccessMixin, DetailView):
@@ -307,7 +387,18 @@ class TaskStatusListView(ScopedAccessMixin, ListView):
     model = TaskStatus
     template_name = "task_app/taskstatus_list.html"
     context_object_name = "statuses"
-    queryset = TaskStatus.objects.order_by("sort_order", "name")
+
+    def get_queryset(self):
+        queryset = TaskStatus.objects.annotate(task_total=Count("tasks", distinct=True))
+        query = get_clean_query(self.request)
+        queryset = apply_text_search(queryset, query, ["name", "description"])
+        return queryset.order_by("sort_order", "name")
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["search_query"] = get_clean_query(self.request)
+        context["result_count"] = context["statuses"].count()
+        return context
 
 
 class TaskStatusDetailView(ScopedAccessMixin, DetailView):
@@ -350,11 +441,79 @@ class TaskListView(ScopedAccessMixin, ListView):
     context_object_name = "tasks"
 
     def get_queryset(self):
-        return tasks_for_user(self.request.user).select_related("project", "status", "assigned_to").order_by(
-            "status__sort_order",
-            "due_date",
-            "title",
+        queryset = tasks_for_user(self.request.user).select_related("project", "status", "assigned_to")
+        query = get_clean_query(self.request)
+        status_filter = self.request.GET.get("status", "all")
+        priority_filter = self.request.GET.get("priority", "all")
+        completion_filter = self.request.GET.get("completion", "all")
+        due_filter = self.request.GET.get("due", "all")
+        sort_value = self.request.GET.get("sort", "status")
+        today = timezone.localdate()
+        upcoming_window = today + timedelta(days=7)
+
+        queryset = apply_text_search(
+            queryset,
+            query,
+            ["title", "description", "project__name", "status__name", "assigned_to__username"],
         )
+
+        if status_filter != "all":
+            queryset = queryset.filter(status__pk=status_filter)
+        if priority_filter != "all":
+            queryset = queryset.filter(priority=priority_filter)
+        if completion_filter == "open":
+            queryset = queryset.filter(is_completed=False)
+        elif completion_filter == "completed":
+            queryset = queryset.filter(is_completed=True)
+
+        if due_filter == "overdue":
+            queryset = queryset.filter(is_completed=False, due_date__lt=today)
+        elif due_filter == "today":
+            queryset = queryset.filter(due_date=today)
+        elif due_filter == "upcoming":
+            queryset = queryset.filter(is_completed=False, due_date__gt=today, due_date__lte=upcoming_window)
+        elif due_filter == "unscheduled":
+            queryset = queryset.filter(due_date__isnull=True)
+
+        sort_map = {
+            "status": ["status__sort_order", "due_date", "title"],
+            "due": ["due_date", "title"],
+            "priority": ["-priority", "due_date", "title"],
+            "recent": ["-updated_at", "title"],
+            "title": ["title"],
+        }
+        return queryset.order_by(*sort_map.get(sort_value, ["status__sort_order", "due_date", "title"]))
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        scoped_tasks = tasks_for_user(self.request.user)
+        today = timezone.localdate()
+        upcoming_window = today + timedelta(days=7)
+
+        context["search_query"] = get_clean_query(self.request)
+        context["status_filter"] = self.request.GET.get("status", "all")
+        context["priority_filter"] = self.request.GET.get("priority", "all")
+        context["completion_filter"] = self.request.GET.get("completion", "all")
+        context["due_filter"] = self.request.GET.get("due", "all")
+        context["sort_value"] = self.request.GET.get("sort", "status")
+        context["available_statuses"] = TaskStatus.objects.order_by("sort_order", "name")
+        context["result_count"] = context["tasks"].count()
+        context["task_open_count"] = scoped_tasks.filter(is_completed=False).count()
+        context["task_overdue_count"] = scoped_tasks.filter(is_completed=False, due_date__lt=today).count()
+        context["task_due_soon_count"] = scoped_tasks.filter(
+            is_completed=False,
+            due_date__gt=today,
+            due_date__lte=upcoming_window,
+        ).count()
+        context["task_completed_count"] = scoped_tasks.filter(is_completed=True).count()
+        context["sort_options"] = [
+            ("status", SORT_LABELS["status"]),
+            ("due", SORT_LABELS["due"]),
+            ("priority", SORT_LABELS["priority"]),
+            ("recent", SORT_LABELS["recent"]),
+            ("title", SORT_LABELS["title"]),
+        ]
+        return context
 
 
 class TaskDetailView(ScopedAccessMixin, DetailView):
@@ -404,6 +563,11 @@ def issue_secure_challenge(request):
     request.session["secure_challenge_issued_at"] = issued_at
     request.session["secure_verified_at"] = None
     return challenge
+
+
+class SecureAccessPermissionMixin(LoginRequiredMixin, UserPassesTestMixin):
+    def test_func(self):
+        return can_manage_app(self.request.user)
 
 
 def secure_access_view(request):

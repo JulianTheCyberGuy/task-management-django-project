@@ -5,10 +5,30 @@
     <div class="page-header-copy">
         <h2 class="page-title">Task Statuses</h2>
         <p class="page-subtitle">
-            Define the stages your team uses to track work, from pending through completion.
+            Search and review the workflow states used to organize tasks across the application.
         </p>
     </div>
-    <a class="button" href="{% url 'taskstatus-add' %}">Add Task Status</a>
+    {% if user_role == 'ADMIN' or user_role == 'MANAGER' %}
+        <a class="button" href="{% url 'taskstatus-add' %}">Add Task Status</a>
+    {% endif %}
+</div>
+
+<div class="filter-card">
+    <form method="get" class="unstyled-form filter-form-grid org-filter-grid">
+        <div class="filter-field filter-search-span">
+            <label for="status_q">Search</label>
+            <input type="text" id="status_q" name="q" value="{{ search_query }}" placeholder="Search status name or description">
+        </div>
+
+        <div class="filter-actions">
+            <button type="submit">Search</button>
+            <a class="button secondary-button" href="{% url 'taskstatus-list' %}">Reset</a>
+        </div>
+    </form>
+</div>
+
+<div class="filter-summary-row">
+    <span class="badge">{{ result_count }} result{{ result_count|pluralize }}</span>
 </div>
 
 {% if statuses %}
@@ -17,40 +37,34 @@
             <article class="entity-card">
                 <div class="entity-card-header">
                     <h3 class="entity-card-title">{{ status.name }}</h3>
-                    <span class="badge">Status</span>
+                    <span class="badge">{{ status.task_total }} task{{ status.task_total|pluralize }}</span>
                 </div>
 
-                <div class="entity-card-body">
-                    <div class="entity-meta-list">
-                        <div class="entity-meta-item">
-                            <span class="entity-meta-label">Description</span>
-                            <span class="entity-meta-value">{{ status.description|default:"No description provided." }}</span>
-                        </div>
-
-                        <div class="entity-meta-item">
-                            <span class="entity-meta-label">Sort Order</span>
-                            <span class="entity-meta-value">{{ status.sort_order }}</span>
-                        </div>
-
-                        <div class="entity-meta-item">
-                            <span class="entity-meta-label">Tasks Using This Status</span>
-                            <span class="entity-meta-value">{{ status.tasks.count }} task{{ status.tasks.count|pluralize }}</span>
-                        </div>
+                <div class="entity-meta-list">
+                    <div class="entity-meta-item">
+                        <span class="entity-meta-label">Description</span>
+                        <span class="entity-meta-value">{{ status.description|default:'No description provided.' }}</span>
+                    </div>
+                    <div class="entity-meta-item">
+                        <span class="entity-meta-label">Sort Order</span>
+                        <span class="entity-meta-value">{{ status.sort_order }}</span>
                     </div>
                 </div>
 
                 <div class="entity-card-actions">
                     <a class="button" href="{% url 'taskstatus-detail' status.pk %}">View Details</a>
-                    <a class="text-link-action" href="{% url 'taskstatus-edit' status.pk %}">Edit</a>
+                    {% if user_role == 'ADMIN' or user_role == 'MANAGER' %}
+                        <a class="text-link-action" href="{% url 'taskstatus-edit' status.pk %}">Edit</a>
+                    {% endif %}
                 </div>
             </article>
         {% endfor %}
     </div>
 {% else %}
     <div class="empty-state-card">
-        <h3>No task statuses yet</h3>
-        <p>Create a status so tasks can move through clear workflow stages.</p>
-        <a class="button" href="{% url 'taskstatus-add' %}">Create Task Status</a>
+        <h3>No task statuses matched your search</h3>
+        <p>Try a broader search or reset the filter to view all task statuses.</p>
+        <a class="button" href="{% url 'taskstatus-list' %}">Clear Search</a>
     </div>
 {% endif %}
 {% endblock %}

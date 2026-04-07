@@ -5,7 +5,7 @@
     <div class="page-header-copy">
         <h2 class="page-title">Dashboard</h2>
         <p class="page-subtitle">
-            This dashboard reflects the data visible to your signed-in role and organization scope.
+            This dashboard reflects the data visible to your signed-in role and organization scope, with quick attention on urgent work.
         </p>
     </div>
     <div class="pill-row">
@@ -24,58 +24,113 @@
         <div class="stat-number">{{ project_count }}</div>
     </div>
     <div class="stat-card">
-        <h3>Task Statuses</h3>
-        <div class="stat-number">{{ status_count }}</div>
+        <h3>Active Projects</h3>
+        <div class="stat-number">{{ active_project_count }}</div>
     </div>
     <div class="stat-card">
         <h3>Total Tasks</h3>
         <div class="stat-number">{{ task_count }}</div>
     </div>
-    <div class="stat-card">
-        <h3>Completed Tasks</h3>
-        <div class="stat-number">{{ completed_task_count }}</div>
+    <div class="stat-card attention-card">
+        <h3>Overdue Tasks</h3>
+        <div class="stat-number">{{ overdue_task_count }}</div>
     </div>
     <div class="stat-card">
-        <h3>Incomplete Tasks</h3>
-        <div class="stat-number">{{ incomplete_task_count }}</div>
+        <h3>Due Today</h3>
+        <div class="stat-number">{{ due_today_task_count }}</div>
+    </div>
+    <div class="stat-card">
+        <h3>Due in 7 Days</h3>
+        <div class="stat-number">{{ due_soon_task_count }}</div>
+    </div>
+    <div class="stat-card">
+        <h3>High Priority Open</h3>
+        <div class="stat-number">{{ high_priority_open_task_count }}</div>
     </div>
 </div>
 
-<div class="section">
-    <h3>Status Summary</h3>
-    {% if status_summary %}
-        <ul class="clean-list">
-            {% for status in status_summary %}
-                <li>
-                    <strong>{{ status.name }}</strong>
-                    <span class="badge">{{ status.task_total }} task{{ status.task_total|pluralize }}</span>
-                    {% if status.description %}
-                        <div class="muted">{{ status.description }}</div>
-                    {% endif %}
-                </li>
-            {% endfor %}
-        </ul>
-    {% else %}
-        <p>No task statuses have been created yet.</p>
-    {% endif %}
+<div class="dashboard-section-grid">
+    <section class="section-card">
+        <div class="section-card-header">
+            <h3 class="section-card-title">Overdue Tasks</h3>
+            <a class="text-link-action" href="{% url 'task-list' %}?due=overdue&completion=open">View all overdue</a>
+        </div>
+        {% if overdue_tasks %}
+            <div class="related-stack compact-stack">
+                {% for task in overdue_tasks %}
+                    <div class="related-card compact-related-card">
+                        <h4 class="related-card-title">{{ task.title }}</h4>
+                        <p class="related-card-copy">{{ task.project.name }} • Due {{ task.due_date }}</p>
+                    </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <p class="muted">No overdue tasks right now.</p>
+        {% endif %}
+    </section>
+
+    <section class="section-card">
+        <div class="section-card-header">
+            <h3 class="section-card-title">Due Soon</h3>
+            <a class="text-link-action" href="{% url 'task-list' %}?due=upcoming&completion=open">View due soon</a>
+        </div>
+        {% if due_soon_tasks %}
+            <div class="related-stack compact-stack">
+                {% for task in due_soon_tasks %}
+                    <div class="related-card compact-related-card">
+                        <h4 class="related-card-title">{{ task.title }}</h4>
+                        <p class="related-card-copy">{{ task.project.name }} • Due {{ task.due_date }}</p>
+                    </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <p class="muted">Nothing due soon in the next 7 days.</p>
+        {% endif %}
+    </section>
 </div>
 
-<div class="section">
-    <h3>Recent Tasks</h3>
-    {% if recent_tasks %}
-        <ul class="clean-list">
-            {% for task in recent_tasks %}
-                <li>
-                    <strong>{{ task.title }}</strong><br>
-                    <span class="muted">Project:</span> {{ task.project.name }}
-                    <span class="muted">| Status:</span> {{ task.status.name }}
-                    <span class="muted">| Priority:</span> {{ task.get_priority_display }}
-                </li>
-            {% endfor %}
-        </ul>
-    {% else %}
-        <p>No tasks have been added yet.</p>
-    {% endif %}
+<div class="dashboard-section-grid">
+    <section class="section-card">
+        <div class="section-card-header">
+            <h3 class="section-card-title">Status Summary</h3>
+        </div>
+        {% if status_summary %}
+            <ul class="clean-list">
+                {% for status in status_summary %}
+                    <li>
+                        <strong>{{ status.name }}</strong>
+                        <span class="badge">{{ status.task_total }} task{{ status.task_total|pluralize }}</span>
+                        {% if status.description %}
+                            <div class="muted">{{ status.description }}</div>
+                        {% endif %}
+                    </li>
+                {% endfor %}
+            </ul>
+        {% else %}
+            <p>No task statuses have been created yet.</p>
+        {% endif %}
+    </section>
+
+    <section class="section-card">
+        <div class="section-card-header">
+            <h3 class="section-card-title">Recently Updated Tasks</h3>
+            <a class="text-link-action" href="{% url 'task-list' %}?sort=recent">Open task list</a>
+        </div>
+        {% if recent_tasks %}
+            <ul class="clean-list">
+                {% for task in recent_tasks %}
+                    <li>
+                        <strong>{{ task.title }}</strong><br>
+                        <span class="muted">Project:</span> {{ task.project.name }}
+                        <span class="muted">| Status:</span> {{ task.status.name }}
+                        <span class="muted">| Priority:</span> {{ task.get_priority_display }}
+                    </li>
+                {% endfor %}
+            </ul>
+        {% else %}
+            <p>No tasks have been added yet.</p>
+        {% endif %}
+    </section>
 </div>
 
 <div class="section inline-links">

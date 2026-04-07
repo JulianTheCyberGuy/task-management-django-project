@@ -5,13 +5,86 @@
     <div class="page-header-copy">
         <h2 class="page-title">Tasks</h2>
         <p class="page-subtitle">
-            Review all tasks in the system. Tasks are organized by status, due date, and title.
+            Search, filter, and sort tasks to quickly find overdue work, upcoming deadlines, and assigned responsibilities.
         </p>
     </div>
     <div class="page-toolbar">
-        <a class="button" href="{% url 'task-add' %}">Add Task</a>
+        {% if user_role == 'ADMIN' or user_role == 'MANAGER' %}
+            <a class="button" href="{% url 'task-add' %}">Add Task</a>
+        {% endif %}
         <a class="button" href="{% url 'calendar-month' %}">Open Calendar</a>
     </div>
+</div>
+
+<div class="filter-card">
+    <form method="get" class="unstyled-form filter-form-grid">
+        <div class="filter-field filter-search-span">
+            <label for="id_q">Search</label>
+            <input type="text" id="id_q" name="q" value="{{ search_query }}" placeholder="Search tasks, projects, statuses, or assignees">
+        </div>
+
+        <div class="filter-field">
+            <label for="id_status">Status</label>
+            <select id="id_status" name="status">
+                <option value="all" {% if status_filter == 'all' %}selected{% endif %}>All statuses</option>
+                {% for status in available_statuses %}
+                    <option value="{{ status.pk }}" {% if status_filter == status.pk|stringformat:'s' %}selected{% endif %}>{{ status.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="filter-field">
+            <label for="id_priority">Priority</label>
+            <select id="id_priority" name="priority">
+                <option value="all" {% if priority_filter == 'all' %}selected{% endif %}>All priorities</option>
+                <option value="HIGH" {% if priority_filter == 'HIGH' %}selected{% endif %}>High</option>
+                <option value="MED" {% if priority_filter == 'MED' %}selected{% endif %}>Medium</option>
+                <option value="LOW" {% if priority_filter == 'LOW' %}selected{% endif %}>Low</option>
+            </select>
+        </div>
+
+        <div class="filter-field">
+            <label for="id_completion">Completion</label>
+            <select id="id_completion" name="completion">
+                <option value="all" {% if completion_filter == 'all' %}selected{% endif %}>All tasks</option>
+                <option value="open" {% if completion_filter == 'open' %}selected{% endif %}>Open only</option>
+                <option value="completed" {% if completion_filter == 'completed' %}selected{% endif %}>Completed only</option>
+            </select>
+        </div>
+
+        <div class="filter-field">
+            <label for="id_due">Due Window</label>
+            <select id="id_due" name="due">
+                <option value="all" {% if due_filter == 'all' %}selected{% endif %}>All due dates</option>
+                <option value="overdue" {% if due_filter == 'overdue' %}selected{% endif %}>Overdue</option>
+                <option value="today" {% if due_filter == 'today' %}selected{% endif %}>Due today</option>
+                <option value="upcoming" {% if due_filter == 'upcoming' %}selected{% endif %}>Due in 7 days</option>
+                <option value="unscheduled" {% if due_filter == 'unscheduled' %}selected{% endif %}>No due date</option>
+            </select>
+        </div>
+
+        <div class="filter-field">
+            <label for="id_sort">Sort By</label>
+            <select id="id_sort" name="sort">
+                {% for option_value, option_label in sort_options %}
+                    <option value="{{ option_value }}" {% if sort_value == option_value %}selected{% endif %}>{{ option_label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="filter-actions">
+            <button type="submit">Apply Filters</button>
+            <a class="button secondary-button" href="{% url 'task-list' %}">Reset</a>
+        </div>
+    </form>
+</div>
+
+<div class="filter-summary-row">
+    <span class="badge">{{ result_count }} result{{ result_count|pluralize }}</span>
+    <span class="status-pill">Open: {{ task_open_count }}</span>
+    <span class="status-pill">Overdue: {{ task_overdue_count }}</span>
+    <span class="status-pill">Due Soon: {{ task_due_soon_count }}</span>
+    <span class="status-pill">Completed: {{ task_completed_count }}</span>
 </div>
 
 {% if tasks %}
@@ -23,44 +96,42 @@
                     <span class="priority-pill priority-{{ task.priority|lower }}">{{ task.get_priority_display }}</span>
                 </div>
 
-                <div class="entity-card-body">
-                    <div class="pill-row">
-                        <span class="status-pill">{{ task.status.name }}</span>
-                        <span class="boolean-pill {% if task.is_completed %}true{% else %}false{% endif %}">
-                            {% if task.is_completed %}Completed{% else %}Open{% endif %}
-                        </span>
+                <div class="pill-row">
+                    <span class="status-pill">{{ task.status.name }}</span>
+                    <span class="boolean-pill {% if task.is_completed %}true{% else %}false{% endif %}">
+                        {% if task.is_completed %}Completed{% else %}Open{% endif %}
+                    </span>
+                </div>
+
+                <div class="entity-meta-list">
+                    <div class="entity-meta-item">
+                        <span class="entity-meta-label">Project</span>
+                        <span class="entity-meta-value">{{ task.project.name }}</span>
                     </div>
-
-                    <div class="entity-meta-list">
-                        <div class="entity-meta-item">
-                            <span class="entity-meta-label">Project</span>
-                            <span class="entity-meta-value">{{ task.project.name }}</span>
-                        </div>
-
-                        <div class="entity-meta-item">
-                            <span class="entity-meta-label">Due Date</span>
-                            <span class="entity-meta-value">{{ task.due_date|default:"Not scheduled" }}</span>
-                        </div>
-
-                        <div class="entity-meta-item">
-                            <span class="entity-meta-label">Assigned To</span>
-                            <span class="entity-meta-value">{{ task.assigned_to|default:"Unassigned" }}</span>
-                        </div>
+                    <div class="entity-meta-item">
+                        <span class="entity-meta-label">Assigned To</span>
+                        <span class="entity-meta-value">{{ task.assigned_to|default:'Unassigned' }}</span>
+                    </div>
+                    <div class="entity-meta-item">
+                        <span class="entity-meta-label">Due Date</span>
+                        <span class="entity-meta-value">{{ task.due_date|default:'Not scheduled' }}</span>
                     </div>
                 </div>
 
                 <div class="entity-card-actions">
                     <a class="button" href="{% url 'task-detail' task.pk %}">View Details</a>
-                    <a class="text-link-action" href="{% url 'task-edit' task.pk %}">Edit</a>
+                    {% if user_role == 'ADMIN' or user_role == 'MANAGER' %}
+                        <a class="text-link-action" href="{% url 'task-edit' task.pk %}">Edit</a>
+                    {% endif %}
                 </div>
             </article>
         {% endfor %}
     </div>
 {% else %}
     <div class="empty-state-card">
-        <h3>No tasks yet</h3>
-        <p>Create a task to begin tracking work across your projects.</p>
-        <a class="button" href="{% url 'task-add' %}">Create Task</a>
+        <h3>No tasks matched your filters</h3>
+        <p>Try broadening your search or resetting the filters to see more tasks.</p>
+        <a class="button" href="{% url 'task-list' %}">Clear Filters</a>
     </div>
 {% endif %}
 {% endblock %}

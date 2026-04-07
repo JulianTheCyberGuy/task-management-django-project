@@ -5,10 +5,30 @@
     <div class="page-header-copy">
         <h2 class="page-title">Organizations</h2>
         <p class="page-subtitle">
-            View and manage the organizations that own projects in your task management system.
+            Search organizations and quickly review contact details and connected project counts.
         </p>
     </div>
-    <a class="button" href="{% url 'organization-add' %}">Add Organization</a>
+    {% if user_role == 'ADMIN' %}
+        <a class="button" href="{% url 'organization-add' %}">Add Organization</a>
+    {% endif %}
+</div>
+
+<div class="filter-card">
+    <form method="get" class="unstyled-form filter-form-grid org-filter-grid">
+        <div class="filter-field filter-search-span">
+            <label for="organization_q">Search</label>
+            <input type="text" id="organization_q" name="q" value="{{ search_query }}" placeholder="Search organization name, email, or phone">
+        </div>
+
+        <div class="filter-actions">
+            <button type="submit">Search</button>
+            <a class="button secondary-button" href="{% url 'organization-list' %}">Reset</a>
+        </div>
+    </form>
+</div>
+
+<div class="filter-summary-row">
+    <span class="badge">{{ result_count }} result{{ result_count|pluralize }}</span>
 </div>
 
 {% if organizations %}
@@ -17,40 +37,34 @@
             <article class="entity-card">
                 <div class="entity-card-header">
                     <h3 class="entity-card-title">{{ organization.name }}</h3>
-                    <span class="badge">Organization</span>
+                    <span class="badge">{{ organization.project_total }} project{{ organization.project_total|pluralize }}</span>
                 </div>
 
-                <div class="entity-card-body">
-                    <div class="entity-meta-list">
-                        <div class="entity-meta-item">
-                            <span class="entity-meta-label">Contact Email</span>
-                            <span class="entity-meta-value">{{ organization.contact_email|default:"Not provided" }}</span>
-                        </div>
-
-                        <div class="entity-meta-item">
-                            <span class="entity-meta-label">Phone Number</span>
-                            <span class="entity-meta-value">{{ organization.phone_number|default:"Not provided" }}</span>
-                        </div>
-
-                        <div class="entity-meta-item">
-                            <span class="entity-meta-label">Projects</span>
-                            <span class="entity-meta-value">{{ organization.projects.count }} project{{ organization.projects.count|pluralize }}</span>
-                        </div>
+                <div class="entity-meta-list">
+                    <div class="entity-meta-item">
+                        <span class="entity-meta-label">Contact Email</span>
+                        <span class="entity-meta-value">{{ organization.contact_email|default:'Not provided' }}</span>
+                    </div>
+                    <div class="entity-meta-item">
+                        <span class="entity-meta-label">Phone Number</span>
+                        <span class="entity-meta-value">{{ organization.phone_number|default:'Not provided' }}</span>
                     </div>
                 </div>
 
                 <div class="entity-card-actions">
                     <a class="button" href="{% url 'organization-detail' organization.pk %}">View Details</a>
-                    <a class="text-link-action" href="{% url 'organization-edit' organization.pk %}">Edit</a>
+                    {% if user_role == 'ADMIN' %}
+                        <a class="text-link-action" href="{% url 'organization-edit' organization.pk %}">Edit</a>
+                    {% endif %}
                 </div>
             </article>
         {% endfor %}
     </div>
 {% else %}
     <div class="empty-state-card">
-        <h3>No organizations yet</h3>
-        <p>Add your first organization to start grouping projects more effectively.</p>
-        <a class="button" href="{% url 'organization-add' %}">Create Organization</a>
+        <h3>No organizations matched your search</h3>
+        <p>Try a different keyword or reset the search to view all organizations in scope.</p>
+        <a class="button" href="{% url 'organization-list' %}">Clear Search</a>
     </div>
 {% endif %}
 {% endblock %}
