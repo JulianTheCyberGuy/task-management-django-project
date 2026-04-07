@@ -6,7 +6,7 @@ def create_superuser(apps, schema_editor):
     if not User.objects.filter(username='demo_admin').exists():
         User.objects.create_superuser(
             username='admin',
-            email='demo_admin@test.com',
+            email='admin@example.com',
             password='admin123'
         )
 
