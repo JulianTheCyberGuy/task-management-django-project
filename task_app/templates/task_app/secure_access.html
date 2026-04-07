@@ -17,7 +17,11 @@
         <div class="detail-grid">
             <div class="detail-item full-width">
                 <span class="detail-label">Current challenge</span>
-                <div class="detail-value"><code>{{ challenge_message }}</code></div>
+                <textarea class="challenge-box" id="challengeValue" rows="3" readonly>{{ challenge_message }}</textarea>
+                <div class="challenge-actions">
+                    <button type="button" class="secondary-button" id="copyChallengeButton">Copy challenge</button>
+                    <span class="challenge-hint">Sign the exact value shown above. If you use a terminal, use <code>echo -n</code> so no extra newline is added.</span>
+                </div>
             </div>
         </div>
 
@@ -37,4 +41,28 @@
         </form>
     </div>
 </div>
+
+<script>
+    const copyChallengeButton = document.getElementById("copyChallengeButton");
+    const challengeValue = document.getElementById("challengeValue");
+
+    if (copyChallengeButton && challengeValue) {
+        copyChallengeButton.addEventListener("click", async function () {
+            try {
+                await navigator.clipboard.writeText(challengeValue.value);
+                copyChallengeButton.textContent = "Copied";
+                setTimeout(function () {
+                    copyChallengeButton.textContent = "Copy challenge";
+                }, 1500);
+            } catch (error) {
+                challengeValue.select();
+                document.execCommand("copy");
+                copyChallengeButton.textContent = "Copied";
+                setTimeout(function () {
+                    copyChallengeButton.textContent = "Copy challenge";
+                }, 1500);
+            }
+        });
+    }
+</script>
 {% endblock %}

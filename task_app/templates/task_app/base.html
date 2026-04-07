@@ -172,7 +172,7 @@
         }
 
         .logout-form button {
-            background: none;
+            background: transparent;
             border: none;
             color: white;
             font-weight: 700;
@@ -180,11 +180,87 @@
             cursor: pointer;
             border-radius: 8px;
             font-size: 0.98rem;
+            line-height: 1.2;
+            display: inline-flex;
+            align-items: center;
         }
 
         .logout-form button:hover {
             background: rgba(255,255,255,0.12);
             transform: none;
+        }
+
+        .role-chip-hint {
+            font-size: 0.74rem;
+            color: rgba(255, 255, 255, 0.82);
+            font-weight: 600;
+            letter-spacing: 0.01em;
+        }
+
+        .workbench-card .related-card-copy {
+            margin-bottom: 0.95rem;
+            line-height: 1.65;
+        }
+
+        .workbench-action {
+            margin-top: 0.5rem;
+        }
+
+        .challenge-box {
+            width: 100%;
+            padding: 0.9rem;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            background: #f8faff;
+            font-family: monospace;
+            font-size: 0.98rem;
+            line-height: 1.5;
+            color: var(--primary-dark);
+            resize: vertical;
+        }
+
+        .challenge-actions {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            flex-wrap: wrap;
+            margin-top: 0.85rem;
+        }
+
+        .challenge-hint {
+            color: var(--muted);
+            font-size: 0.92rem;
+        }
+
+        .denied-shell {
+            max-width: 760px;
+            margin: 0 auto;
+        }
+
+        .denied-card {
+            background: linear-gradient(180deg, #fff8f1 0%, #fff 100%);
+            border: 1px solid #f3d1a4;
+            border-radius: 18px;
+            padding: 1.5rem;
+            box-shadow: 0 12px 30px rgba(31, 60, 136, 0.08);
+        }
+
+        .denied-title {
+            margin-top: 0;
+            margin-bottom: 0.75rem;
+            color: #9a3412;
+        }
+
+        .denied-meta {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.4rem 0.8rem;
+            border-radius: 999px;
+            background: #ffedd5;
+            color: #9a3412;
+            font-weight: 700;
+            margin: 0.25rem 0 1rem 0;
         }
 
         main {
@@ -1329,7 +1405,7 @@
             <div class="nav-row nav-row-secondary">
                 {% if user.is_authenticated %}
                     <div class="nav-user">
-                        <span class="auth-status-chip">{{ user.username|title }}</span>
+                        <span class="auth-status-chip">{{ user.username|capfirst }}</span>
                         {% if current_user_role_label %}
                             <button
                                 type="button"
@@ -1340,6 +1416,7 @@
                             >
                                 {{ current_user_role_label }}
                             </button>
+                            <span class="role-chip-hint">Click role for permissions</span>
                         {% endif %}
                     </div>
 
@@ -1354,7 +1431,7 @@
                             <a href="{% url 'security-dashboard' %}">Security Dashboard</a>
                         {% endif %}
                         <span class="nav-separator">|</span>
-                        <a href="/admin/">Admin</a>
+                        <a href="{% url 'admin-portal' %}">Admin</a>
                         <span class="nav-separator">|</span>
                         <form method="post" action="{% url 'logout' %}" class="unstyled-form logout-form">
                             {% csrf_token %}

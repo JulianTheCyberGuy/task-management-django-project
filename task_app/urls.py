@@ -31,6 +31,8 @@ from .views import (
     TaskUpdateView,
     protected_report_view,
     secure_access_view,
+    access_denied_view,
+    admin_portal_redirect_view,
 )
 
 
@@ -63,6 +65,8 @@ urlpatterns = [
     path("security/events/", SecurityEventListView.as_view(), name="security-event-list"),
     path("security/failed-access/", FailedAccessView.as_view(), name="failed-access-list"),
     path("security/protected-access-history/", ProtectedAccessHistoryView.as_view(), name="protected-access-history"),
+    path("access-denied/", access_denied_view, name="access-denied"),
+    path("admin-portal/", admin_portal_redirect_view, name="admin-portal"),
     path("secure-access/", secure_access_view, name="secure-access"),
     path("protected-report/", protected_report_view, name="protected-report"),
 ]

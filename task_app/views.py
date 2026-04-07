@@ -15,12 +15,14 @@ from django.db.models import Count, Q
 from django.db.models.functions import TruncDate
 from django.http import Http404, HttpResponse
 from django.shortcuts import redirect, render
-from django.urls import reverse_lazy
+from django.urls import reverse, reverse_lazy
 from django.utils import timezone
 from django.views import View
 from django.views.generic import CreateView, DetailView, FormView, ListView, TemplateView, UpdateView
 
 from .access import (
+    ROLE_ADMIN,
+    ROLE_MANAGER,
     can_manage_app,
     get_user_organization,
     get_user_role,
@@ -189,17 +191,29 @@ class ScopedAccessMixin(LoginRequiredMixin):
 
 
 class ManagerRequiredMixin(ScopedAccessMixin, UserPassesTestMixin):
-    permission_denied_message = "You do not have permission to manage this resource."
+    permission_denied_message = "Manager access is required to manage this resource."
 
     def test_func(self):
         return can_manage_app(self.request.user)
 
+    def handle_no_permission(self):
+        if not self.request.user.is_authenticated:
+            return super().handle_no_permission()
+        write_security_event(self.request, "manager_access_denied", SecurityEvent.SEVERITY_WARNING, self.permission_denied_message)
+        return redirect_access_denied(self.request, ROLE_MANAGER, self.permission_denied_message)
+
 
 class AdminRequiredMixin(ScopedAccessMixin, UserPassesTestMixin):
-    permission_denied_message = "You must be an administrator to access this page."
+    permission_denied_message = "Administrator access is required to access this page."
 
     def test_func(self):
         return is_admin(self.request.user)
+
+    def handle_no_permission(self):
+        if not self.request.user.is_authenticated:
+            return super().handle_no_permission()
+        write_security_event(self.request, "admin_access_denied", SecurityEvent.SEVERITY_WARNING, self.permission_denied_message)
+        return redirect_access_denied(self.request, ROLE_ADMIN, self.permission_denied_message)
 
 
 class AuditFormSuccessMixin:
@@ -884,17 +898,12 @@ def issue_secure_challenge(request):
     return challenge
 
 
-class SecureAccessPermissionMixin(LoginRequiredMixin, UserPassesTestMixin):
-    def test_func(self):
-        return can_manage_app(self.request.user)
-
-
 def secure_access_view(request):
     if not request.user.is_authenticated:
         return redirect(f"{settings.LOGIN_URL}?next={request.path}")
     if not can_manage_app(request.user):
         write_security_event(request, "protected_access_denied", SecurityEvent.SEVERITY_WARNING, "User lacks role for secure access page.")
-        raise Http404("You do not have access to this page.")
+        return redirect_access_denied(request, ROLE_MANAGER, "Manager access is required to use Secure Access.")
 
     current_challenge = request.session.get("secure_challenge") or issue_secure_challenge(request)
     issued_at = request.session.get("secure_challenge_issued_at")
@@ -919,13 +928,9 @@ def secure_access_view(request):
         try:
             public_key_data = settings.SECURE_ACCESS_PUBLIC_KEY_PATH.read_bytes()
             public_key = load_pem_public_key(public_key_data)
-            signature = base64.b64decode(signature_b64)
-            public_key.verify(
-                signature,
-                submitted_challenge.encode("utf-8"),
-                padding.PKCS1v15(),
-                hashes.SHA256(),
-            )
+            normalized_signature = "".join(signature_b64.split())
+            signature = base64.b64decode(normalized_signature)
+            verified_candidate = verify_signature_against_challenge(public_key, signature, submitted_challenge)
             request.session["secure_verified_at"] = timezone.now().isoformat()
             request.session.pop("secure_challenge", None)
             request.session.pop("secure_challenge_issued_at", None)
@@ -934,11 +939,15 @@ def secure_access_view(request):
                 action=AuditLog.ACTION_VERIFY,
                 entity_type="protected_report",
                 summary="RSA challenge verified successfully",
-                metadata={"path": request.path},
+                metadata={"path": request.path, "matched_variant": "exact" if verified_candidate == submitted_challenge else "normalized_newline_variant"},
             )
             write_security_event(request, "signature_verification_success", SecurityEvent.SEVERITY_INFO, "Protected report challenge verified successfully.")
             messages.success(request, "Signature verified successfully. Protected report access is temporarily unlocked.")
             return redirect("protected-report")
+        except binascii.Error:
+            write_security_event(request, "signature_format_invalid", SecurityEvent.SEVERITY_WARNING, "A malformed Base64 signature was submitted for secure access.")
+            messages.error(request, "The submitted signature is not valid Base64. Paste the full signature exactly as generated.")
+            current_challenge = issue_secure_challenge(request)
         except (ValueError, InvalidSignature):
             write_audit_log(
                 user=request.user,
@@ -959,7 +968,7 @@ def protected_report_view(request):
         return redirect(f"{settings.LOGIN_URL}?next={request.path}")
     if not can_manage_app(request.user):
         write_security_event(request, "protected_report_denied", SecurityEvent.SEVERITY_WARNING, "User lacked role for protected report access.")
-        raise Http404("You do not have access to this page.")
+        return redirect_access_denied(request, ROLE_MANAGER, "Manager access is required to view the protected report.")
 
     verified_at_str = request.session.get("secure_verified_at")
     if not verified_at_str:

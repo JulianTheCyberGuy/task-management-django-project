@@ -1,0 +1,21 @@
+{% extends "task_app/base.html" %}
+
+{% block content %}
+<div class="denied-shell">
+    <div class="denied-card">
+        <h2 class="denied-title">Access denied</h2>
+        <p>{{ access_denied_message }}</p>
+
+        {% if minimum_role_label and minimum_role_code %}
+            <div class="denied-meta">Minimum role required: {{ minimum_role_label }}</div>
+        {% endif %}
+
+        <p class="muted">If you believe you should have access, contact an administrator to review your role assignment.</p>
+
+        <div class="inline-links">
+            <a class="button" href="{% url 'home' %}">Return Home</a>
+            <a class="button secondary-button" href="{% url 'profile' %}">View My Account</a>
+        </div>
+    </div>
+</div>
+{% endblock %}
