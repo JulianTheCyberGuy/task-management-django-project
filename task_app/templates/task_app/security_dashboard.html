@@ -1,0 +1,178 @@
+{% extends "task_app/base.html" %}
+
+{% block content %}
+<div class="page-header">
+    <div class="page-header-copy">
+        <h2 class="page-title">Security Dashboard</h2>
+        <p class="page-subtitle">
+            Review audit activity, security events, failed access patterns, and protected resource history across the application.
+        </p>
+    </div>
+    <div class="pill-row">
+        <span class="status-pill">Window: {% if window_value == 'all' %}All Time{% else %}Last {{ window_value }} Days{% endif %}</span>
+        <a class="button secondary-button" href="{% url 'security-dashboard' %}?window=7">7 Days</a>
+        <a class="button secondary-button" href="{% url 'security-dashboard' %}?window=30">30 Days</a>
+        <a class="button secondary-button" href="{% url 'security-dashboard' %}?window=90">90 Days</a>
+        <a class="button secondary-button" href="{% url 'security-dashboard' %}?window=all">All Time</a>
+    </div>
+</div>
+
+<div class="grid">
+    <div class="stat-card">
+        <h3>Audit Logs</h3>
+        <div class="stat-number">{{ audit_total }}</div>
+    </div>
+    <div class="stat-card">
+        <h3>Security Events</h3>
+        <div class="stat-number">{{ security_event_total }}</div>
+    </div>
+    <div class="stat-card attention-card">
+        <h3>Denied Audit Actions</h3>
+        <div class="stat-number">{{ denied_audit_total }}</div>
+    </div>
+    <div class="stat-card attention-card">
+        <h3>Warnings</h3>
+        <div class="stat-number">{{ warning_event_total }}</div>
+    </div>
+    <div class="stat-card attention-card">
+        <h3>Errors</h3>
+        <div class="stat-number">{{ error_event_total }}</div>
+    </div>
+    <div class="stat-card">
+        <h3>Protected Resource Events</h3>
+        <div class="stat-number">{{ protected_event_total }}</div>
+    </div>
+</div>
+
+<div class="dashboard-section-grid">
+    <section class="section-card">
+        <div class="section-card-header">
+            <h3 class="section-card-title">Security Workbench</h3>
+        </div>
+        <div class="related-stack compact-stack">
+            <div class="related-card">
+                <h4 class="related-card-title">Audit Log Viewer</h4>
+                <p class="related-card-copy">Search who did what, when it happened, and which entity was affected.</p>
+                <a class="button" href="{% url 'audit-log-list' %}">Open Audit Logs</a>
+            </div>
+            <div class="related-card">
+                <h4 class="related-card-title">Security Event Viewer</h4>
+                <p class="related-card-copy">Inspect warnings, errors, IP addresses, and event details captured by the app.</p>
+                <a class="button" href="{% url 'security-event-list' %}">Open Security Events</a>
+            </div>
+            <div class="related-card">
+                <h4 class="related-card-title">Failed Access Tracking</h4>
+                <p class="related-card-copy">Review denied actions and warning or error activity grouped by type, user, and IP.</p>
+                <a class="button" href="{% url 'failed-access-list' %}">Open Failed Access</a>
+            </div>
+            <div class="related-card">
+                <h4 class="related-card-title">Protected Resource History</h4>
+                <p class="related-card-copy">See challenge verification, denied attempts, and report views for protected resources.</p>
+                <a class="button" href="{% url 'protected-access-history' %}">Open Access History</a>
+            </div>
+        </div>
+    </section>
+
+    <section class="section-card">
+        <div class="section-card-header">
+            <h3 class="section-card-title">Top Audit Actions</h3>
+        </div>
+        {% if top_audit_actions %}
+            <ul class="clean-list">
+                {% for item in top_audit_actions %}
+                    <li>
+                        <strong>{{ item.action }}</strong>
+                        <span class="badge">{{ item.total }}</span>
+                    </li>
+                {% endfor %}
+            </ul>
+        {% else %}
+            <p class="muted">No audit activity was found for this window.</p>
+        {% endif %}
+    </section>
+</div>
+
+<div class="dashboard-section-grid">
+    <section class="section-card">
+        <div class="section-card-header">
+            <h3 class="section-card-title">Top Security Event Types</h3>
+        </div>
+        {% if top_event_types %}
+            <ul class="clean-list">
+                {% for item in top_event_types %}
+                    <li>
+                        <strong>{{ item.event_type }}</strong>
+                        <span class="badge">{{ item.total }}</span>
+                    </li>
+                {% endfor %}
+            </ul>
+        {% else %}
+            <p class="muted">No security events were found for this window.</p>
+        {% endif %}
+    </section>
+
+    <section class="section-card">
+        <div class="section-card-header">
+            <h3 class="section-card-title">Protected Activity by Day</h3>
+        </div>
+        {% if protected_access_days %}
+            <ul class="clean-list">
+                {% for item in protected_access_days %}
+                    <li>
+                        <strong>{{ item.day }}</strong>
+                        <span class="badge">{{ item.total }} event{{ item.total|pluralize }}</span>
+                    </li>
+                {% endfor %}
+            </ul>
+        {% else %}
+            <p class="muted">No protected resource activity was found for this window.</p>
+        {% endif %}
+    </section>
+</div>
+
+<div class="dashboard-section-grid">
+    <section class="section-card">
+        <div class="section-card-header">
+            <h3 class="section-card-title">Recent Audit Logs</h3>
+            <a class="text-link-action" href="{% url 'audit-log-list' %}">View all</a>
+        </div>
+        {% if recent_audit_logs %}
+            <div class="related-stack compact-stack">
+                {% for entry in recent_audit_logs %}
+                    <div class="related-card compact-related-card">
+                        <h4 class="related-card-title">{{ entry.action }} · {{ entry.entity_type }}</h4>
+                        <p class="related-card-copy">
+                            {{ entry.summary }}<br>
+                            {% if entry.user %}User: {{ entry.user.username }}{% else %}User: System{% endif %} · {{ entry.created_at }}
+                        </p>
+                    </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <p class="muted">No recent audit logs were found.</p>
+        {% endif %}
+    </section>
+
+    <section class="section-card">
+        <div class="section-card-header">
+            <h3 class="section-card-title">Recent Security Events</h3>
+            <a class="text-link-action" href="{% url 'security-event-list' %}">View all</a>
+        </div>
+        {% if recent_security_events %}
+            <div class="related-stack compact-stack">
+                {% for event in recent_security_events %}
+                    <div class="related-card compact-related-card">
+                        <h4 class="related-card-title">{{ event.event_type }}</h4>
+                        <p class="related-card-copy">
+                            Severity: {{ event.severity }}{% if event.ip_address %} · IP: {{ event.ip_address }}{% endif %}<br>
+                            {% if event.user %}User: {{ event.user.username }}{% else %}User: Anonymous/System{% endif %} · {{ event.created_at }}
+                        </p>
+                    </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <p class="muted">No recent security events were found.</p>
+        {% endif %}
+    </section>
+</div>
+{% endblock %}

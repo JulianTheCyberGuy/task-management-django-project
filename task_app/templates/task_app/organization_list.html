@@ -5,12 +5,15 @@
     <div class="page-header-copy">
         <h2 class="page-title">Organizations</h2>
         <p class="page-subtitle">
-            Search organizations and quickly review contact details and connected project counts.
+            Search organizations, review contact details, and export the organizations currently visible in your scope.
         </p>
     </div>
-    {% if user_role == 'ADMIN' %}
-        <a class="button" href="{% url 'organization-add' %}">Add Organization</a>
-    {% endif %}
+    <div class="page-toolbar">
+        <a class="button secondary-button" href="{% url 'organization-export-csv' %}{% if request.GET.urlencode %}?{{ request.GET.urlencode }}{% endif %}">Export CSV</a>
+        {% if user_role == 'ADMIN' %}
+            <a class="button" href="{% url 'organization-add' %}">Add Organization</a>
+        {% endif %}
+    </div>
 </div>
 
 <div class="filter-card">

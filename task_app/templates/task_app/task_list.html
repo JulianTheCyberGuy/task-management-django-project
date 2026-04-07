@@ -5,10 +5,11 @@
     <div class="page-header-copy">
         <h2 class="page-title">Tasks</h2>
         <p class="page-subtitle">
-            Search, filter, and sort tasks to quickly find overdue work, upcoming deadlines, and assigned responsibilities.
+            Search, filter, sort, and export tasks to review overdue work, upcoming deadlines, and assigned responsibilities.
         </p>
     </div>
     <div class="page-toolbar">
+        <a class="button secondary-button" href="{% url 'task-export-csv' %}{% if request.GET.urlencode %}?{{ request.GET.urlencode }}{% endif %}">Export CSV</a>
         {% if user_role == 'ADMIN' or user_role == 'MANAGER' %}
             <a class="button" href="{% url 'task-add' %}">Add Task</a>
         {% endif %}

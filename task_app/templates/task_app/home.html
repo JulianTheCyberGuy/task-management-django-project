@@ -133,6 +133,21 @@
     </section>
 </div>
 
+{% if user_role == 'ADMIN' %}
+<div class="dashboard-section-grid">
+    <section class="section-card">
+        <div class="section-card-header">
+            <h3 class="section-card-title">Security Monitoring</h3>
+            <a class="text-link-action" href="{% url 'security-dashboard' %}">Open security dashboard</a>
+        </div>
+        <p class="muted">Review audit logs, security events, failed access patterns, and protected resource history from one admin-focused workspace.</p>
+        <div class="pill-row">
+            <span class="badge">{{ security_event_count }} security event{{ security_event_count|pluralize }}</span>
+        </div>
+    </section>
+</div>
+{% endif %}
+
 <div class="section inline-links">
     {% if user_role == 'ADMIN' or user_role == 'MANAGER' %}
         <a class="button" href="{% url 'project-add' %}">Add Project</a>

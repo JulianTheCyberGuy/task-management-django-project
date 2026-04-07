@@ -1,4 +1,5 @@
 import base64
+import csv
 import secrets
 from datetime import timedelta
 
@@ -11,10 +12,12 @@ from django.contrib import messages
 from django.contrib.auth import login
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.db.models import Count, Q
-from django.http import Http404
+from django.db.models.functions import TruncDate
+from django.http import Http404, HttpResponse
 from django.shortcuts import redirect, render
 from django.urls import reverse_lazy
 from django.utils import timezone
+from django.views import View
 from django.views.generic import CreateView, DetailView, FormView, ListView, TemplateView, UpdateView
 
 from .access import (
@@ -81,6 +84,100 @@ def apply_text_search(queryset, query, fields):
     for field in fields:
         search_filter |= Q(**{f"{field}__icontains": query})
     return queryset.filter(search_filter)
+
+
+
+def _project_filtered_queryset(request):
+    queryset = projects_for_user(request.user).select_related("organization").annotate(task_total=Count("tasks", distinct=True))
+    query = get_clean_query(request)
+    active_filter = request.GET.get("active", "all")
+    sort_value = request.GET.get("sort", "name")
+
+    queryset = apply_text_search(queryset, query, ["name", "description", "organization__name"])
+
+    if active_filter == "active":
+        queryset = queryset.filter(is_active=True)
+    elif active_filter == "inactive":
+        queryset = queryset.filter(is_active=False)
+
+    sort_map = {
+        "name": ["name"],
+        "recent": ["-created_at", "name"],
+        "start": ["start_date", "name"],
+        "end": ["end_date", "name"],
+    }
+    return queryset.order_by(*sort_map.get(sort_value, ["name"]))
+
+
+def _task_filtered_queryset(request):
+    queryset = tasks_for_user(request.user).select_related("project", "project__organization", "status", "assigned_to")
+    query = get_clean_query(request)
+    status_filter = request.GET.get("status", "all")
+    priority_filter = request.GET.get("priority", "all")
+    completion_filter = request.GET.get("completion", "all")
+    due_filter = request.GET.get("due", "all")
+    sort_value = request.GET.get("sort", "status")
+    today = timezone.localdate()
+    upcoming_window = today + timedelta(days=7)
+
+    queryset = apply_text_search(
+        queryset,
+        query,
+        ["title", "description", "project__name", "status__name", "assigned_to__username"],
+    )
+
+    if status_filter != "all":
+        queryset = queryset.filter(status__pk=status_filter)
+    if priority_filter != "all":
+        queryset = queryset.filter(priority=priority_filter)
+    if completion_filter == "open":
+        queryset = queryset.filter(is_completed=False)
+    elif completion_filter == "completed":
+        queryset = queryset.filter(is_completed=True)
+
+    if due_filter == "overdue":
+        queryset = queryset.filter(is_completed=False, due_date__lt=today)
+    elif due_filter == "today":
+        queryset = queryset.filter(due_date=today)
+    elif due_filter == "upcoming":
+        queryset = queryset.filter(is_completed=False, due_date__gt=today, due_date__lte=upcoming_window)
+    elif due_filter == "unscheduled":
+        queryset = queryset.filter(due_date__isnull=True)
+
+    sort_map = {
+        "status": ["status__sort_order", "due_date", "title"],
+        "due": ["due_date", "title"],
+        "priority": ["-priority", "due_date", "title"],
+        "recent": ["-updated_at", "title"],
+        "title": ["title"],
+    }
+    return queryset.order_by(*sort_map.get(sort_value, ["status__sort_order", "due_date", "title"]))
+
+
+def _build_csv_response(filename, headers, rows):
+    response = HttpResponse(content_type="text/csv")
+    response["Content-Disposition"] = f'attachment; filename="{filename}"'
+    writer = csv.writer(response)
+    writer.writerow(headers)
+    for row in rows:
+        writer.writerow(row)
+    return response
+
+def get_recent_window_days(request, default="30"):
+    value = request.GET.get("window", default)
+    if value not in {"7", "30", "90", "all"}:
+        return default
+    return value
+
+
+def apply_recent_window(queryset, field_name, window_value):
+    if window_value == "all":
+        return queryset
+    return queryset.filter(**{f"{field_name}__gte": timezone.now() - timedelta(days=int(window_value))})
+
+
+def is_protected_resource_event(event_type):
+    return event_type.startswith("protected_") or event_type.startswith("signature_")
 
 
 class ScopedAccessMixin(LoginRequiredMixin):
@@ -308,25 +405,7 @@ class ProjectListView(ScopedAccessMixin, ListView):
     context_object_name = "projects"
 
     def get_queryset(self):
-        queryset = projects_for_user(self.request.user).select_related("organization").annotate(task_total=Count("tasks", distinct=True))
-        query = get_clean_query(self.request)
-        active_filter = self.request.GET.get("active", "all")
-        sort_value = self.request.GET.get("sort", "name")
-
-        queryset = apply_text_search(queryset, query, ["name", "description", "organization__name"])
-
-        if active_filter == "active":
-            queryset = queryset.filter(is_active=True)
-        elif active_filter == "inactive":
-            queryset = queryset.filter(is_active=False)
-
-        sort_map = {
-            "name": ["name"],
-            "recent": ["-created_at", "name"],
-            "start": ["start_date", "name"],
-            "end": ["end_date", "name"],
-        }
-        return queryset.order_by(*sort_map.get(sort_value, ["name"]))
+        return _project_filtered_queryset(self.request)
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -441,48 +520,7 @@ class TaskListView(ScopedAccessMixin, ListView):
     context_object_name = "tasks"
 
     def get_queryset(self):
-        queryset = tasks_for_user(self.request.user).select_related("project", "status", "assigned_to")
-        query = get_clean_query(self.request)
-        status_filter = self.request.GET.get("status", "all")
-        priority_filter = self.request.GET.get("priority", "all")
-        completion_filter = self.request.GET.get("completion", "all")
-        due_filter = self.request.GET.get("due", "all")
-        sort_value = self.request.GET.get("sort", "status")
-        today = timezone.localdate()
-        upcoming_window = today + timedelta(days=7)
-
-        queryset = apply_text_search(
-            queryset,
-            query,
-            ["title", "description", "project__name", "status__name", "assigned_to__username"],
-        )
-
-        if status_filter != "all":
-            queryset = queryset.filter(status__pk=status_filter)
-        if priority_filter != "all":
-            queryset = queryset.filter(priority=priority_filter)
-        if completion_filter == "open":
-            queryset = queryset.filter(is_completed=False)
-        elif completion_filter == "completed":
-            queryset = queryset.filter(is_completed=True)
-
-        if due_filter == "overdue":
-            queryset = queryset.filter(is_completed=False, due_date__lt=today)
-        elif due_filter == "today":
-            queryset = queryset.filter(due_date=today)
-        elif due_filter == "upcoming":
-            queryset = queryset.filter(is_completed=False, due_date__gt=today, due_date__lte=upcoming_window)
-        elif due_filter == "unscheduled":
-            queryset = queryset.filter(due_date__isnull=True)
-
-        sort_map = {
-            "status": ["status__sort_order", "due_date", "title"],
-            "due": ["due_date", "title"],
-            "priority": ["-priority", "due_date", "title"],
-            "recent": ["-updated_at", "title"],
-            "title": ["title"],
-        }
-        return queryset.order_by(*sort_map.get(sort_value, ["status__sort_order", "due_date", "title"]))
+        return _task_filtered_queryset(self.request)
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -554,6 +592,287 @@ class TaskUpdateView(ManagerRequiredMixin, AuditFormSuccessMixin, UpdateView):
         kwargs = super().get_form_kwargs()
         kwargs["user"] = self.request.user
         return kwargs
+
+
+class SecurityDashboardView(AdminRequiredMixin, TemplateView):
+    template_name = "task_app/security_dashboard.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        window_value = get_recent_window_days(self.request)
+        audit_logs = apply_recent_window(AuditLog.objects.select_related("user"), "created_at", window_value)
+        security_events = apply_recent_window(SecurityEvent.objects.select_related("user"), "created_at", window_value)
+
+        denied_audit_logs = audit_logs.filter(action=AuditLog.ACTION_DENIED)
+        warning_events = security_events.filter(severity=SecurityEvent.SEVERITY_WARNING)
+        error_events = security_events.filter(severity=SecurityEvent.SEVERITY_ERROR)
+        protected_events = security_events.filter(
+            Q(event_type__startswith="protected_") | Q(event_type__startswith="signature_")
+        )
+
+        context.update({
+            "window_value": window_value,
+            "audit_total": audit_logs.count(),
+            "security_event_total": security_events.count(),
+            "denied_audit_total": denied_audit_logs.count(),
+            "warning_event_total": warning_events.count(),
+            "error_event_total": error_events.count(),
+            "protected_event_total": protected_events.count(),
+            "recent_audit_logs": audit_logs.order_by("-created_at")[:8],
+            "recent_security_events": security_events.order_by("-created_at")[:8],
+            "top_audit_actions": audit_logs.values("action").annotate(total=Count("id")).order_by("-total", "action")[:6],
+            "top_event_types": security_events.values("event_type").annotate(total=Count("id")).order_by("-total", "event_type")[:6],
+            "failed_access_types": security_events.filter(severity__in=[SecurityEvent.SEVERITY_WARNING, SecurityEvent.SEVERITY_ERROR]).values("event_type").annotate(total=Count("id")).order_by("-total", "event_type")[:6],
+            "protected_access_days": protected_events.annotate(day=TruncDate("created_at")).values("day").annotate(total=Count("id")).order_by("-day")[:7],
+        })
+        return context
+
+
+class AuditLogListView(AdminRequiredMixin, ListView):
+    model = AuditLog
+    template_name = "task_app/audit_log_list.html"
+    context_object_name = "audit_logs"
+    paginate_by = 25
+
+    def get_queryset(self):
+        queryset = AuditLog.objects.select_related("user")
+        query = get_clean_query(self.request)
+        action_filter = self.request.GET.get("action", "all")
+        entity_filter = self.request.GET.get("entity", "all")
+        window_value = get_recent_window_days(self.request)
+
+        queryset = apply_recent_window(queryset, "created_at", window_value)
+        queryset = apply_text_search(queryset, query, ["summary", "entity_type", "entity_id", "user__username"])
+
+        if action_filter != "all":
+            queryset = queryset.filter(action=action_filter)
+        if entity_filter != "all":
+            queryset = queryset.filter(entity_type=entity_filter)
+
+        return queryset.order_by("-created_at")
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        filtered_queryset = self.get_queryset()
+        context["search_query"] = get_clean_query(self.request)
+        context["action_filter"] = self.request.GET.get("action", "all")
+        context["entity_filter"] = self.request.GET.get("entity", "all")
+        context["window_value"] = get_recent_window_days(self.request)
+        context["result_count"] = filtered_queryset.count()
+        context["action_options"] = AuditLog.ACTION_CHOICES
+        context["entity_options"] = list(AuditLog.objects.order_by("entity_type").values_list("entity_type", flat=True).distinct())
+        return context
+
+
+class SecurityEventListView(AdminRequiredMixin, ListView):
+    model = SecurityEvent
+    template_name = "task_app/security_event_list.html"
+    context_object_name = "security_events"
+    paginate_by = 25
+
+    def get_queryset(self):
+        queryset = SecurityEvent.objects.select_related("user")
+        query = get_clean_query(self.request)
+        severity_filter = self.request.GET.get("severity", "all")
+        event_type_filter = self.request.GET.get("event_type", "all")
+        window_value = get_recent_window_days(self.request)
+
+        queryset = apply_recent_window(queryset, "created_at", window_value)
+        queryset = apply_text_search(queryset, query, ["event_type", "details", "user__username", "ip_address"])
+
+        if severity_filter != "all":
+            queryset = queryset.filter(severity=severity_filter)
+        if event_type_filter != "all":
+            queryset = queryset.filter(event_type=event_type_filter)
+
+        return queryset.order_by("-created_at")
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        filtered_queryset = self.get_queryset()
+        context["search_query"] = get_clean_query(self.request)
+        context["severity_filter"] = self.request.GET.get("severity", "all")
+        context["event_type_filter"] = self.request.GET.get("event_type", "all")
+        context["window_value"] = get_recent_window_days(self.request)
+        context["result_count"] = filtered_queryset.count()
+        context["severity_options"] = SecurityEvent.SEVERITY_CHOICES
+        context["event_type_options"] = list(SecurityEvent.objects.order_by("event_type").values_list("event_type", flat=True).distinct())
+        return context
+
+
+class FailedAccessView(AdminRequiredMixin, TemplateView):
+    template_name = "task_app/failed_access_list.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        window_value = get_recent_window_days(self.request)
+        denied_audit_logs = apply_recent_window(
+            AuditLog.objects.select_related("user").filter(action=AuditLog.ACTION_DENIED),
+            "created_at",
+            window_value,
+        ).order_by("-created_at")
+        failed_events = apply_recent_window(
+            SecurityEvent.objects.select_related("user").filter(severity__in=[SecurityEvent.SEVERITY_WARNING, SecurityEvent.SEVERITY_ERROR]),
+            "created_at",
+            window_value,
+        ).order_by("-created_at")
+
+        context.update({
+            "window_value": window_value,
+            "denied_audit_total": denied_audit_logs.count(),
+            "failed_event_total": failed_events.count(),
+            "denied_audit_logs": denied_audit_logs[:15],
+            "failed_events": failed_events[:15],
+            "failed_by_user": failed_events.values("user__username").annotate(total=Count("id")).order_by("-total", "user__username")[:8],
+            "failed_by_ip": failed_events.exclude(ip_address__isnull=True).exclude(ip_address="").values("ip_address").annotate(total=Count("id")).order_by("-total", "ip_address")[:8],
+            "failed_by_type": failed_events.values("event_type").annotate(total=Count("id")).order_by("-total", "event_type")[:8],
+        })
+        return context
+
+
+class ProtectedAccessHistoryView(AdminRequiredMixin, TemplateView):
+    template_name = "task_app/protected_access_history.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        window_value = get_recent_window_days(self.request)
+        protected_audits = apply_recent_window(
+            AuditLog.objects.select_related("user").filter(entity_type="protected_report"),
+            "created_at",
+            window_value,
+        ).order_by("-created_at")
+        protected_events = apply_recent_window(
+            SecurityEvent.objects.select_related("user").filter(
+                Q(event_type__startswith="protected_") | Q(event_type__startswith="signature_")
+            ),
+            "created_at",
+            window_value,
+        ).order_by("-created_at")
+
+        context.update({
+            "window_value": window_value,
+            "protected_view_total": protected_audits.filter(action=AuditLog.ACTION_VIEW).count(),
+            "protected_verify_total": protected_audits.filter(action=AuditLog.ACTION_VERIFY).count(),
+            "protected_denied_total": protected_audits.filter(action=AuditLog.ACTION_DENIED).count(),
+            "protected_event_total": protected_events.count(),
+            "protected_audits": protected_audits[:20],
+            "protected_events": protected_events[:20],
+        })
+        return context
+
+
+
+
+class OrganizationExportCsvView(ScopedAccessMixin, View):
+    def get(self, request, *args, **kwargs):
+        organizations = organizations_for_user(request.user).annotate(project_total=Count("projects", distinct=True))
+        query = get_clean_query(request)
+        organizations = apply_text_search(organizations, query, ["name", "contact_email", "phone_number"]).order_by("name")
+
+        write_audit_log(
+            user=request.user,
+            action=AuditLog.ACTION_VIEW,
+            entity_type="organization_export",
+            summary="Exported organization list to CSV",
+            metadata={"path": request.path, "query": query},
+        )
+
+        rows = [
+            [
+                organization.pk,
+                organization.name,
+                organization.contact_email,
+                organization.phone_number,
+                organization.project_total,
+                organization.created_at.isoformat(),
+            ]
+            for organization in organizations
+        ]
+        return _build_csv_response(
+            "organizations_export.csv",
+            ["ID", "Name", "Contact Email", "Phone Number", "Project Count", "Created At"],
+            rows,
+        )
+
+
+class ProjectExportCsvView(ScopedAccessMixin, View):
+    def get(self, request, *args, **kwargs):
+        projects = _project_filtered_queryset(request)
+
+        write_audit_log(
+            user=request.user,
+            action=AuditLog.ACTION_VIEW,
+            entity_type="project_export",
+            summary="Exported project list to CSV",
+            metadata={
+                "path": request.path,
+                "query": get_clean_query(request),
+                "active": request.GET.get("active", "all"),
+                "sort": request.GET.get("sort", "name"),
+            },
+        )
+
+        rows = [
+            [
+                project.pk,
+                project.name,
+                project.organization.name,
+                project.description,
+                project.start_date.isoformat() if project.start_date else "",
+                project.end_date.isoformat() if project.end_date else "",
+                "Yes" if project.is_active else "No",
+                project.task_total,
+                project.created_at.isoformat(),
+            ]
+            for project in projects
+        ]
+        return _build_csv_response(
+            "projects_export.csv",
+            ["ID", "Name", "Organization", "Description", "Start Date", "End Date", "Active", "Task Count", "Created At"],
+            rows,
+        )
+
+
+class TaskExportCsvView(ScopedAccessMixin, View):
+    def get(self, request, *args, **kwargs):
+        tasks = _task_filtered_queryset(request)
+
+        write_audit_log(
+            user=request.user,
+            action=AuditLog.ACTION_VIEW,
+            entity_type="task_export",
+            summary="Exported task list to CSV",
+            metadata={
+                "path": request.path,
+                "query": get_clean_query(request),
+                "status": request.GET.get("status", "all"),
+                "priority": request.GET.get("priority", "all"),
+                "completion": request.GET.get("completion", "all"),
+                "due": request.GET.get("due", "all"),
+                "sort": request.GET.get("sort", "status"),
+            },
+        )
+
+        rows = [
+            [
+                task.pk,
+                task.title,
+                task.project.name,
+                task.project.organization.name,
+                task.status.name,
+                task.assigned_to.username if task.assigned_to else "",
+                task.priority,
+                "Yes" if task.is_completed else "No",
+                task.due_date.isoformat() if task.due_date else "",
+                task.updated_at.isoformat(),
+            ]
+            for task in tasks
+        ]
+        return _build_csv_response(
+            "tasks_export.csv",
+            ["ID", "Title", "Project", "Organization", "Status", "Assigned To", "Priority", "Completed", "Due Date", "Updated At"],
+            rows,
+        )
 
 
 def issue_secure_challenge(request):

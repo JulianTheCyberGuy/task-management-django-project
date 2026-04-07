@@ -1,0 +1,95 @@
+{% extends "task_app/base.html" %}
+
+{% block content %}
+<div class="page-header">
+    <div class="page-header-copy">
+        <h2 class="page-title">Security Events</h2>
+        <p class="page-subtitle">
+            Review captured warnings, errors, and informational activity with user and IP context.
+        </p>
+    </div>
+    <div class="page-toolbar">
+        <a class="button secondary-button" href="{% url 'security-dashboard' %}">Back to Security Dashboard</a>
+    </div>
+</div>
+
+<div class="filter-card">
+    <form method="get" class="unstyled-form filter-form-grid">
+        <div class="filter-field">
+            <label for="event_q">Search</label>
+            <input type="text" id="event_q" name="q" value="{{ search_query }}" placeholder="Search event type, details, user, or IP">
+        </div>
+
+        <div class="filter-field">
+            <label for="event_severity">Severity</label>
+            <select id="event_severity" name="severity">
+                <option value="all">All severities</option>
+                {% for value, label in severity_options %}
+                    <option value="{{ value }}" {% if severity_filter == value %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="filter-field">
+            <label for="event_type">Event Type</label>
+            <select id="event_type" name="event_type">
+                <option value="all">All event types</option>
+                {% for value in event_type_options %}
+                    <option value="{{ value }}" {% if event_type_filter == value %}selected{% endif %}>{{ value }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="filter-field">
+            <label for="event_window">Window</label>
+            <select id="event_window" name="window">
+                <option value="7" {% if window_value == '7' %}selected{% endif %}>Last 7 days</option>
+                <option value="30" {% if window_value == '30' %}selected{% endif %}>Last 30 days</option>
+                <option value="90" {% if window_value == '90' %}selected{% endif %}>Last 90 days</option>
+                <option value="all" {% if window_value == 'all' %}selected{% endif %}>All time</option>
+            </select>
+        </div>
+
+        <div class="filter-actions">
+            <button type="submit">Apply Filters</button>
+            <a class="button secondary-button" href="{% url 'security-event-list' %}">Reset</a>
+        </div>
+    </form>
+</div>
+
+<div class="filter-summary-row">
+    <span class="badge">{{ result_count }} result{{ result_count|pluralize }}</span>
+</div>
+
+{% if security_events %}
+    <div class="related-stack">
+        {% for event in security_events %}
+            <article class="related-card">
+                <div class="entity-card-header">
+                    <h3 class="entity-card-title">{{ event.event_type }}</h3>
+                    <span class="badge">{{ event.created_at }}</span>
+                </div>
+                <div class="pill-row" style="margin-bottom: 0.85rem;">
+                    <span class="status-pill">{{ event.severity }}</span>
+                    {% if event.ip_address %}<span class="status-pill">IP: {{ event.ip_address }}</span>{% endif %}
+                </div>
+                <div class="entity-meta-list">
+                    <div class="entity-meta-item">
+                        <span class="entity-meta-label">User</span>
+                        <span class="entity-meta-value">{% if event.user %}{{ event.user.username }}{% else %}Anonymous/System{% endif %}</span>
+                    </div>
+                    <div class="entity-meta-item">
+                        <span class="entity-meta-label">Details</span>
+                        <span class="entity-meta-value">{{ event.details|default:'No additional details recorded.' }}</span>
+                    </div>
+                </div>
+            </article>
+        {% endfor %}
+    </div>
+{% else %}
+    <div class="empty-state-card">
+        <h3>No security events matched your filters</h3>
+        <p>Try broadening the search criteria or using a larger date window.</p>
+    </div>
+{% endif %}
+{% endblock %}

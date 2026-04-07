@@ -1,0 +1,134 @@
+{% extends "task_app/base.html" %}
+
+{% block content %}
+<div class="page-header">
+    <div class="page-header-copy">
+        <h2 class="page-title">Failed Access Tracking</h2>
+        <p class="page-subtitle">
+            Review denied audit actions and warning or error security activity that may indicate failed or blocked access attempts.
+        </p>
+    </div>
+    <div class="page-toolbar">
+        <a class="button secondary-button" href="{% url 'security-dashboard' %}">Back to Security Dashboard</a>
+    </div>
+</div>
+
+<div class="pill-row" style="margin-bottom: 1rem;">
+    <a class="button secondary-button" href="{% url 'failed-access-list' %}?window=7">7 Days</a>
+    <a class="button secondary-button" href="{% url 'failed-access-list' %}?window=30">30 Days</a>
+    <a class="button secondary-button" href="{% url 'failed-access-list' %}?window=90">90 Days</a>
+    <a class="button secondary-button" href="{% url 'failed-access-list' %}?window=all">All Time</a>
+    <span class="status-pill">Window: {% if window_value == 'all' %}All Time{% else %}Last {{ window_value }} Days{% endif %}</span>
+</div>
+
+<div class="grid">
+    <div class="stat-card attention-card">
+        <h3>Denied Audit Actions</h3>
+        <div class="stat-number">{{ denied_audit_total }}</div>
+    </div>
+    <div class="stat-card attention-card">
+        <h3>Warning and Error Events</h3>
+        <div class="stat-number">{{ failed_event_total }}</div>
+    </div>
+</div>
+
+<div class="dashboard-section-grid">
+    <section class="section-card">
+        <div class="section-card-header">
+            <h3 class="section-card-title">Failed Attempts by User</h3>
+        </div>
+        {% if failed_by_user %}
+            <ul class="clean-list">
+                {% for item in failed_by_user %}
+                    <li>
+                        <strong>{{ item.user__username|default:'Unknown/Anonymous' }}</strong>
+                        <span class="badge">{{ item.total }}</span>
+                    </li>
+                {% endfor %}
+            </ul>
+        {% else %}
+            <p class="muted">No user-based failures were found.</p>
+        {% endif %}
+    </section>
+
+    <section class="section-card">
+        <div class="section-card-header">
+            <h3 class="section-card-title">Failed Attempts by IP</h3>
+        </div>
+        {% if failed_by_ip %}
+            <ul class="clean-list">
+                {% for item in failed_by_ip %}
+                    <li>
+                        <strong>{{ item.ip_address }}</strong>
+                        <span class="badge">{{ item.total }}</span>
+                    </li>
+                {% endfor %}
+            </ul>
+        {% else %}
+            <p class="muted">No IP addresses were captured for failed attempts in this window.</p>
+        {% endif %}
+    </section>
+</div>
+
+<div class="dashboard-section-grid">
+    <section class="section-card">
+        <div class="section-card-header">
+            <h3 class="section-card-title">Failed Attempts by Type</h3>
+        </div>
+        {% if failed_by_type %}
+            <ul class="clean-list">
+                {% for item in failed_by_type %}
+                    <li>
+                        <strong>{{ item.event_type }}</strong>
+                        <span class="badge">{{ item.total }}</span>
+                    </li>
+                {% endfor %}
+            </ul>
+        {% else %}
+            <p class="muted">No failed event types were found.</p>
+        {% endif %}
+    </section>
+
+    <section class="section-card">
+        <div class="section-card-header">
+            <h3 class="section-card-title">Recent Denied Audit Actions</h3>
+        </div>
+        {% if denied_audit_logs %}
+            <div class="related-stack compact-stack">
+                {% for entry in denied_audit_logs %}
+                    <div class="related-card compact-related-card">
+                        <h4 class="related-card-title">{{ entry.entity_type }}</h4>
+                        <p class="related-card-copy">
+                            {{ entry.summary }}<br>
+                            {% if entry.user %}User: {{ entry.user.username }}{% else %}User: System{% endif %} · {{ entry.created_at }}
+                        </p>
+                    </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <p class="muted">No denied audit actions were found.</p>
+        {% endif %}
+    </section>
+</div>
+
+<div class="section-card" style="margin-top: 1rem;">
+    <div class="section-card-header">
+        <h3 class="section-card-title">Recent Warning and Error Events</h3>
+    </div>
+    {% if failed_events %}
+        <div class="related-stack compact-stack">
+            {% for event in failed_events %}
+                <div class="related-card compact-related-card">
+                    <h4 class="related-card-title">{{ event.event_type }}</h4>
+                    <p class="related-card-copy">
+                        Severity: {{ event.severity }}{% if event.ip_address %} · IP: {{ event.ip_address }}{% endif %}<br>
+                        {% if event.user %}User: {{ event.user.username }}{% else %}User: Anonymous/System{% endif %} · {{ event.created_at }}
+                    </p>
+                </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <p class="muted">No warning or error events were found.</p>
+    {% endif %}
+</div>
+{% endblock %}

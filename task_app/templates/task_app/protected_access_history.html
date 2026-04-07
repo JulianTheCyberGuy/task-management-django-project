@@ -1,0 +1,86 @@
+{% extends "task_app/base.html" %}
+
+{% block content %}
+<div class="page-header">
+    <div class="page-header-copy">
+        <h2 class="page-title">Protected Resource Access History</h2>
+        <p class="page-subtitle">
+            Review challenge verification, denied attempts, and protected report usage for the RSA-protected workflow.
+        </p>
+    </div>
+    <div class="page-toolbar">
+        <a class="button secondary-button" href="{% url 'security-dashboard' %}">Back to Security Dashboard</a>
+    </div>
+</div>
+
+<div class="pill-row" style="margin-bottom: 1rem;">
+    <a class="button secondary-button" href="{% url 'protected-access-history' %}?window=7">7 Days</a>
+    <a class="button secondary-button" href="{% url 'protected-access-history' %}?window=30">30 Days</a>
+    <a class="button secondary-button" href="{% url 'protected-access-history' %}?window=90">90 Days</a>
+    <a class="button secondary-button" href="{% url 'protected-access-history' %}?window=all">All Time</a>
+    <span class="status-pill">Window: {% if window_value == 'all' %}All Time{% else %}Last {{ window_value }} Days{% endif %}</span>
+</div>
+
+<div class="grid">
+    <div class="stat-card">
+        <h3>Protected Report Views</h3>
+        <div class="stat-number">{{ protected_view_total }}</div>
+    </div>
+    <div class="stat-card">
+        <h3>Successful Verifications</h3>
+        <div class="stat-number">{{ protected_verify_total }}</div>
+    </div>
+    <div class="stat-card attention-card">
+        <h3>Denied Protected Actions</h3>
+        <div class="stat-number">{{ protected_denied_total }}</div>
+    </div>
+    <div class="stat-card">
+        <h3>Protected Security Events</h3>
+        <div class="stat-number">{{ protected_event_total }}</div>
+    </div>
+</div>
+
+<div class="dashboard-section-grid">
+    <section class="section-card">
+        <div class="section-card-header">
+            <h3 class="section-card-title">Protected Audit History</h3>
+        </div>
+        {% if protected_audits %}
+            <div class="related-stack compact-stack">
+                {% for entry in protected_audits %}
+                    <div class="related-card compact-related-card">
+                        <h4 class="related-card-title">{{ entry.action }}</h4>
+                        <p class="related-card-copy">
+                            {{ entry.summary }}<br>
+                            {% if entry.user %}User: {{ entry.user.username }}{% else %}User: System{% endif %} · {{ entry.created_at }}
+                        </p>
+                    </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <p class="muted">No protected audit history was found.</p>
+        {% endif %}
+    </section>
+
+    <section class="section-card">
+        <div class="section-card-header">
+            <h3 class="section-card-title">Protected Security Events</h3>
+        </div>
+        {% if protected_events %}
+            <div class="related-stack compact-stack">
+                {% for event in protected_events %}
+                    <div class="related-card compact-related-card">
+                        <h4 class="related-card-title">{{ event.event_type }}</h4>
+                        <p class="related-card-copy">
+                            Severity: {{ event.severity }}{% if event.ip_address %} · IP: {{ event.ip_address }}{% endif %}<br>
+                            {% if event.user %}User: {{ event.user.username }}{% else %}User: Anonymous/System{% endif %} · {{ event.created_at }}
+                        </p>
+                    </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <p class="muted">No protected security events were found.</p>
+        {% endif %}
+    </section>
+</div>
+{% endblock %}

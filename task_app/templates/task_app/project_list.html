@@ -5,12 +5,15 @@
     <div class="page-header-copy">
         <h2 class="page-title">Projects</h2>
         <p class="page-subtitle">
-            Search projects, filter by activity, and sort by schedule to quickly find the work that matters most.
+            Search projects, filter by activity, sort by schedule, and export the current project view for reporting.
         </p>
     </div>
-    {% if user_role == 'ADMIN' or user_role == 'MANAGER' %}
-        <a class="button" href="{% url 'project-add' %}">Add Project</a>
-    {% endif %}
+    <div class="page-toolbar">
+        <a class="button secondary-button" href="{% url 'project-export-csv' %}{% if request.GET.urlencode %}?{{ request.GET.urlencode }}{% endif %}">Export CSV</a>
+        {% if user_role == 'ADMIN' or user_role == 'MANAGER' %}
+            <a class="button" href="{% url 'project-add' %}">Add Project</a>
+        {% endif %}
+    </div>
 </div>
 
 <div class="filter-card">
