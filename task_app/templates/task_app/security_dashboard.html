@@ -49,23 +49,23 @@
         <div class="section-card-header">
             <h3 class="section-card-title">Security Workbench</h3>
         </div>
-        <div class="related-stack compact-stack">
-            <div class="related-card">
+        <div class="related-stack compact-stack workbench-stack">
+            <div class="related-card workbench-card">
                 <h4 class="related-card-title">Audit Log Viewer</h4>
                 <p class="related-card-copy">Search who did what, when it happened, and which entity was affected.</p>
                 <a class="button" href="{% url 'audit-log-list' %}">Open Audit Logs</a>
             </div>
-            <div class="related-card">
+            <div class="related-card workbench-card">
                 <h4 class="related-card-title">Security Event Viewer</h4>
                 <p class="related-card-copy">Inspect warnings, errors, IP addresses, and event details captured by the app.</p>
                 <a class="button" href="{% url 'security-event-list' %}">Open Security Events</a>
             </div>
-            <div class="related-card">
+            <div class="related-card workbench-card">
                 <h4 class="related-card-title">Failed Access Tracking</h4>
                 <p class="related-card-copy">Review denied actions and warning or error activity grouped by type, user, and IP.</p>
                 <a class="button" href="{% url 'failed-access-list' %}">Open Failed Access</a>
             </div>
-            <div class="related-card">
+            <div class="related-card workbench-card">
                 <h4 class="related-card-title">Protected Resource History</h4>
                 <p class="related-card-copy">See challenge verification, denied attempts, and report views for protected resources.</p>
                 <a class="button" href="{% url 'protected-access-history' %}">Open Access History</a>
@@ -143,7 +143,7 @@
                         <h4 class="related-card-title">{{ entry.action }} · {{ entry.entity_type }}</h4>
                         <p class="related-card-copy">
                             {{ entry.summary }}<br>
-                            {% if entry.user %}User: {{ entry.user.username }}{% else %}User: System{% endif %} · {{ entry.created_at }}
+                            {% if entry.user %}User: {{ entry.user.username|title }}{% else %}User: System{% endif %} · {{ entry.created_at }}
                         </p>
                     </div>
                 {% endfor %}
@@ -165,7 +165,7 @@
                         <h4 class="related-card-title">{{ event.event_type }}</h4>
                         <p class="related-card-copy">
                             Severity: {{ event.severity }}{% if event.ip_address %} · IP: {{ event.ip_address }}{% endif %}<br>
-                            {% if event.user %}User: {{ event.user.username }}{% else %}User: Anonymous/System{% endif %} · {{ event.created_at }}
+                            {% if event.user %}User: {{ event.user.username|title }}{% else %}User: Anonymous/System{% endif %} · {{ event.created_at }}
                         </p>
                     </div>
                 {% endfor %}
