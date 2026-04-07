@@ -1,9 +1,16 @@
+"""Context processors used by the shared base templates."""
+
 from django.db.utils import OperationalError, ProgrammingError
 
 from .access import get_user_organization, get_user_role
 
 
 def current_user_access(request):
+    """Expose the current user's scoped access details to all templates.
+
+    The database exception handling is intentional. It allows pages to render
+during first-run migration states where the profile tables may not exist yet.
+    """
     user = getattr(request, "user", None)
     default_context = {
         "current_user_role": None,

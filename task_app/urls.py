@@ -1,3 +1,5 @@
+"""URL routes for the main HTML task management experience."""
+
 from django.urls import path
 
 from .views import (

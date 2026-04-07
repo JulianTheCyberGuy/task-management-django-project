@@ -1,3 +1,9 @@
+"""Read-only API views for projects, tasks, calendar events, and audit logs.
+
+The API intentionally reuses the same queryset scoping helpers as the HTML
+views, which keeps permission boundaries consistent across the whole app.
+"""
+
 from calendar import monthrange
 from datetime import date
 
@@ -7,13 +13,6 @@ from rest_framework import generics
 from rest_framework.exceptions import ValidationError
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import IsAuthenticated
-
-
-class StandardResultsSetPagination(PageNumberPagination):
-    page_size = 20
-    page_size_query_param = "page_size"
-    max_page_size = 100
-
 
 from .access import projects_for_user, tasks_for_user
 from .api_permissions import IsAdminApiUser
@@ -25,10 +24,18 @@ from .api_serializers import (
     TaskDetailSerializer,
     TaskListSerializer,
 )
-from .models import AuditLog, Project, Task
+from .models import AuditLog
+
+
+class StandardResultsSetPagination(PageNumberPagination):
+    """Shared pagination so list endpoints behave consistently."""
+    page_size = 20
+    page_size_query_param = "page_size"
+    max_page_size = 100
 
 
 class ScopedProjectListApiView(generics.ListAPIView):
+    """Return only the projects the current user is allowed to view."""
     serializer_class = ProjectSummarySerializer
     permission_classes = [IsAuthenticated]
     pagination_class = StandardResultsSetPagination
@@ -58,6 +65,7 @@ class ScopedProjectListApiView(generics.ListAPIView):
 
 
 class ScopedProjectDetailApiView(generics.RetrieveAPIView):
+    """Return one in-scope project with summary counts included."""
     serializer_class = ProjectDetailSerializer
     permission_classes = [IsAuthenticated]
 
@@ -69,6 +77,7 @@ class ScopedProjectDetailApiView(generics.RetrieveAPIView):
 
 
 class ScopedTaskListApiView(generics.ListAPIView):
+    """Return a filterable list of in-scope tasks."""
     serializer_class = TaskListSerializer
     permission_classes = [IsAuthenticated]
     pagination_class = StandardResultsSetPagination
@@ -111,6 +120,7 @@ class ScopedTaskListApiView(generics.ListAPIView):
 
 
 class ScopedTaskDetailApiView(generics.RetrieveAPIView):
+    """Return one task only if it falls inside the user's allowed scope."""
     serializer_class = TaskDetailSerializer
     permission_classes = [IsAuthenticated]
 
@@ -119,6 +129,7 @@ class ScopedTaskDetailApiView(generics.RetrieveAPIView):
 
 
 class CalendarEventListApiView(generics.ListAPIView):
+    """Expose due-dated tasks as calendar-friendly event objects."""
     serializer_class = CalendarTaskEventSerializer
     permission_classes = [IsAuthenticated]
     pagination_class = None
@@ -140,6 +151,7 @@ class CalendarEventListApiView(generics.ListAPIView):
         month_value = self.request.query_params.get("month")
         year_value = self.request.query_params.get("year")
 
+        # Falling back to the current month makes the endpoint useful without any query params.
         if month_value is None and year_value is None:
             first_day = today.replace(day=1)
             last_day = today.replace(day=monthrange(today.year, today.month)[1])
@@ -174,6 +186,7 @@ class CalendarEventListApiView(generics.ListAPIView):
 
 
 class AuditLogListApiView(generics.ListAPIView):
+    """Administrator-only audit log listing endpoint."""
     serializer_class = AuditLogSerializer
     permission_classes = [IsAdminApiUser]
     pagination_class = StandardResultsSetPagination
@@ -195,6 +208,7 @@ class AuditLogListApiView(generics.ListAPIView):
 
 
 class AuditLogDetailApiView(generics.RetrieveAPIView):
+    """Administrator-only detail endpoint for a single audit record."""
     serializer_class = AuditLogSerializer
     permission_classes = [IsAdminApiUser]
     queryset = AuditLog.objects.select_related("user").order_by("-created_at")

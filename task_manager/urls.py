@@ -1,3 +1,9 @@
+"""Project-level URL configuration.
+
+This file wires together Django admin, built-in auth views, the calendar app,
+the read-only API, and the core task-management routes.
+"""
+
 from django.contrib import admin
 from django.contrib.auth import views as auth_views
 from django.urls import include, path

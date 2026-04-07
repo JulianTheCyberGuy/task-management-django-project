@@ -1,3 +1,11 @@
+"""Forms for the task management app.
+
+The main design choice in this file is pushing both styling and business-rule
+validation into reusable form classes. That keeps the templates simpler and
+ensures the same validation runs whether the form is rendered on a create page
+or an edit page.
+"""
+
 from django import forms
 from django.contrib.auth import get_user_model
 from django.contrib.auth.forms import UserCreationForm
@@ -10,6 +18,7 @@ User = get_user_model()
 
 
 class BootstrapStyledFieldsMixin:
+    """Apply a consistent Bootstrap-style UI across all project forms."""
     textarea_rows = 4
     input_css_class = "form-control"
     date_input_type = "date"
@@ -20,12 +29,14 @@ class BootstrapStyledFieldsMixin:
             if isinstance(widget, forms.Textarea):
                 widget.attrs.setdefault("rows", self.textarea_rows)
             if isinstance(widget, forms.DateInput):
+                # Force native browser date pickers without repeating widget setup in every form.
                 widget.input_type = self.date_input_type
             existing_class = widget.attrs.get("class", "")
             widget.attrs["class"] = f"{existing_class} {self.input_css_class}".strip()
 
 
 class StyledModelForm(BootstrapStyledFieldsMixin, forms.ModelForm):
+    """Base model form that optionally receives the current user for scoping."""
     def __init__(self, *args, **kwargs):
         self.user = kwargs.pop("user", None)
         super().__init__(*args, **kwargs)
@@ -33,6 +44,7 @@ class StyledModelForm(BootstrapStyledFieldsMixin, forms.ModelForm):
 
 
 class StyledForm(BootstrapStyledFieldsMixin, forms.Form):
+    """Base non-model form with the same visual styling rules as model forms."""
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.apply_bootstrap_styles()
@@ -56,6 +68,7 @@ class ProjectForm(StyledModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         if self.user is not None:
+            # Managers should only be able to create projects inside their own organization.
             self.fields["organization"].queryset = organizations_for_user(self.user)
 
     def clean(self):
@@ -93,6 +106,7 @@ class TaskForm(StyledModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         if self.user is not None:
+            # Querysets are scoped here so hidden projects/users cannot be submitted by tampering with form data.
             self.fields["project"].queryset = projects_for_user(self.user).select_related("organization")
             self.fields["assigned_to"].queryset = manageable_users_for_user(self.user)
 
@@ -101,6 +115,7 @@ class TaskForm(StyledModelForm):
         project = cleaned_data.get("project")
         due_date = cleaned_data.get("due_date")
         if project and not project.is_active and not self.instance.pk:
+            # Blocking new work on inactive projects preserves the meaning of the active flag.
             self.add_error("project", "New tasks cannot be added to an inactive project.")
         if project and due_date:
             if project.start_date and due_date < project.start_date:
@@ -111,6 +126,7 @@ class TaskForm(StyledModelForm):
 
 
 class SignUpForm(BootstrapStyledFieldsMixin, UserCreationForm):
+    """Public signup form that also populates the linked UserProfile record."""
     first_name = forms.CharField(max_length=150)
     last_name = forms.CharField(max_length=150)
     email = forms.EmailField()
@@ -131,6 +147,7 @@ class SignUpForm(BootstrapStyledFieldsMixin, UserCreationForm):
 
     def clean_email(self):
         email = self.cleaned_data["email"].strip().lower()
+        # Enforcing case-insensitive uniqueness avoids duplicate accounts that differ only by capitalization.
         if User.objects.filter(email__iexact=email).exists():
             raise forms.ValidationError("An account with this email address already exists.")
         return email
@@ -150,6 +167,7 @@ class SignUpForm(BootstrapStyledFieldsMixin, UserCreationForm):
 
 
 class ProfileUpdateForm(StyledForm):
+    """Profile editing form kept separate from auth forms for a simpler UX."""
     first_name = forms.CharField(max_length=150)
     last_name = forms.CharField(max_length=150)
     email = forms.EmailField()

@@ -1,3 +1,5 @@
+"""Calendar views for rendering task due dates in month, week, day, and list modes."""
+
 import calendar
 from datetime import date, timedelta
 
@@ -8,9 +10,11 @@ from task_app.access import tasks_for_user
 
 
 class CalendarMonthBuilder:
+    """Build the nested week/day structure expected by the calendar template."""
     def __init__(self, year: int, month: int):
         self.year = year
         self.month = month
+        # firstweekday=6 makes the visual calendar start on Sunday to match the template labels.
         self.calendar = calendar.Calendar(firstweekday=6)
 
     def build(self, tasks_by_date):
@@ -32,6 +36,7 @@ class CalendarMonthBuilder:
 
 
 def _safe_int(value, fallback):
+    """Convert querystring values safely without crashing on bad input."""
     try:
         return int(value)
     except (TypeError, ValueError):
@@ -39,6 +44,7 @@ def _safe_int(value, fallback):
 
 
 def _get_selected_date(request):
+    """Build a valid date from query params, falling back gracefully when needed."""
     today = date.today()
     year_value = _safe_int(request.GET.get("year"), today.year)
     month_value = _safe_int(request.GET.get("month"), today.month)
@@ -48,12 +54,14 @@ def _get_selected_date(request):
         return date(year_value, month_value, day_value)
     except ValueError:
         try:
+            # If the day is invalid but month/year are valid, fall back to the first day of that month.
             return date(year_value, month_value, 1)
         except ValueError:
             return today
 
 
 def _get_mode(request):
+    """Normalize the calendar mode to one of the supported template views."""
     mode = request.GET.get("view", "month").lower()
     if mode not in {"month", "week", "day", "list"}:
         return "month"
@@ -61,6 +69,7 @@ def _get_mode(request):
 
 
 def _build_tasks_by_date(task_queryset):
+    """Group tasks by due date for fast calendar rendering."""
     tasks_by_date = {}
     for task in task_queryset:
         tasks_by_date.setdefault(task.due_date, []).append(task)
@@ -69,12 +78,14 @@ def _build_tasks_by_date(task_queryset):
 
 @login_required
 def calendar_month_view(request):
+    """Single calendar endpoint that supports month, week, day, and list displays."""
     selected_date = _get_selected_date(request)
     mode = _get_mode(request)
     today = date.today()
 
     month_start = selected_date.replace(day=1)
     month_end = selected_date.replace(day=calendar.monthrange(selected_date.year, selected_date.month)[1])
+    # The weekday math intentionally normalizes to Sunday as the first visible day of the week.
     week_start = selected_date - timedelta(days=(selected_date.weekday() + 1) % 7)
     week_end = week_start + timedelta(days=6)
 

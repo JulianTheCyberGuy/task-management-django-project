@@ -2,7 +2,7 @@ import os
 import sys
 
 
-# Django management entry point
+# Django management entry point used by local development and deployment scripts.
 def main():
     os.environ.setdefault("DJANGO_SETTINGS_MODULE", "task_manager.settings")
 

@@ -1,3 +1,11 @@
+"""Core data models for the task management app.
+
+The models in this file intentionally separate organizational ownership,
+workflow status, operational tasks, and security/audit records. That keeps the
+business entities clean while still supporting traceability for sensitive
+actions.
+"""
+
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.db import models
@@ -9,6 +17,7 @@ User = get_user_model()
 
 
 class Organization(models.Model):
+    """Top-level tenant-like grouping used to scope users, projects, and tasks."""
     name = models.CharField(max_length=150, unique=True)
     contact_email = models.EmailField(blank=True)
     phone_number = models.CharField(max_length=20, blank=True)
@@ -22,6 +31,7 @@ class Organization(models.Model):
 
 
 class UserProfile(models.Model):
+    """App-specific profile data kept separate from Django's built-in user model."""
     ROLE_ADMIN = "ADMIN"
     ROLE_MANAGER = "MANAGER"
     ROLE_MEMBER = "MEMBER"
@@ -51,6 +61,7 @@ class UserProfile(models.Model):
 
 
 class Project(models.Model):
+    """A project belongs to one organization and groups related task work."""
     organization = models.ForeignKey(
         Organization,
         on_delete=models.CASCADE,
@@ -65,6 +76,7 @@ class Project(models.Model):
 
     class Meta:
         ordering = ["name"]
+        # Project names only need to be unique inside the same organization.
         unique_together = ("organization", "name")
 
     def __str__(self):
@@ -72,6 +84,7 @@ class Project(models.Model):
 
 
 class TaskStatus(models.Model):
+    """Reusable workflow status values such as Open, In Progress, or Complete."""
     name = models.CharField(max_length=50, unique=True)
     description = models.CharField(max_length=200, blank=True)
     sort_order = models.PositiveIntegerField(default=0)
@@ -85,6 +98,7 @@ class TaskStatus(models.Model):
 
 
 class Task(models.Model):
+    """Primary work item model for the application."""
     PRIORITY_LOW = "LOW"
     PRIORITY_MEDIUM = "MED"
     PRIORITY_HIGH = "HIGH"
@@ -132,6 +146,7 @@ class Task(models.Model):
 
 
 class AuditLog(models.Model):
+    """Business-action audit record used for accountability and reporting."""
     ACTION_CREATE = "CREATE"
     ACTION_UPDATE = "UPDATE"
     ACTION_VIEW = "VIEW"
@@ -162,6 +177,7 @@ class AuditLog(models.Model):
 
 
 class SecurityEvent(models.Model):
+    """Operational security record for denied access, challenge failures, and similar events."""
     SEVERITY_INFO = "INFO"
     SEVERITY_WARNING = "WARNING"
     SEVERITY_ERROR = "ERROR"
@@ -187,7 +203,9 @@ class SecurityEvent(models.Model):
 
 @receiver(post_save, sender=User)
 def ensure_user_profile(sender, instance, created, **kwargs):
+    """Guarantee every user has a profile even if created outside the signup form."""
     if created:
         UserProfile.objects.create(user=instance)
     else:
+        # get_or_create protects the app from historical users created before the profile model existed.
         UserProfile.objects.get_or_create(user=instance)

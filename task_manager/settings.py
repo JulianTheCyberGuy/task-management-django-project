@@ -1,3 +1,10 @@
+"""Django settings for the task_manager project.
+
+The settings lean on environment variables for deployment-sensitive values so
+the same codebase can run locally with SQLite and in production with a managed
+database and stronger transport security settings.
+"""
+
 from pathlib import Path
 import os
 
@@ -29,11 +36,12 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "task_app",
     "calendar_app",
-    'rest_framework',
+    "rest_framework",
 ]
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    # WhiteNoise keeps static file serving simple for single-container deployments like Render.
     "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -55,6 +63,7 @@ TEMPLATES = [
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
+                # Inject role/organization details into shared templates for navigation and access UI.
                 "task_app.context_processors.current_user_access",
             ],
         },
@@ -101,6 +110,7 @@ SECURE_HSTS_INCLUDE_SUBDOMAINS = not DEBUG
 SECURE_HSTS_PRELOAD = not DEBUG
 SECURE_SSL_REDIRECT = os.environ.get("DJANGO_SECURE_SSL_REDIRECT", "False") == "True"
 
+# The public key path is configurable so the secure challenge flow can work in local and hosted environments.
 SECURE_ACCESS_PUBLIC_KEY_PATH = Path(
     os.environ.get(
         "DJANGO_PUBLIC_KEY_PATH",
