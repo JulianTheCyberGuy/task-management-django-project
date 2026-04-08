@@ -1,14 +1,8 @@
-"""Django settings for the task_manager project.
-
-The settings lean on environment variables for deployment-sensitive values so
-the same codebase can run locally with SQLite and in production with a managed
-database and stronger transport security settings.
-"""
-
 from pathlib import Path
 import os
 
 import dj_database_url
+from django.core.exceptions import ImproperlyConfigured
 
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -36,12 +30,10 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "task_app",
     "calendar_app",
-    "rest_framework",
 ]
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
-    # WhiteNoise keeps static file serving simple for single-container deployments like Render.
     "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -63,7 +55,6 @@ TEMPLATES = [
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
-                # Inject role/organization details into shared templates for navigation and access UI.
                 "task_app.context_processors.current_user_access",
             ],
         },
@@ -73,9 +64,29 @@ TEMPLATES = [
 WSGI_APPLICATION = "task_manager.wsgi.application"
 ASGI_APPLICATION = "task_manager.asgi.application"
 
-DATABASES = {
-    "default": dj_database_url.config(default=f"sqlite:///{BASE_DIR / 'db.sqlite3'}")
-}
+DATABASE_URL = os.environ.get("DATABASE_URL", "").strip()
+USE_PERSISTENT_SQLITE = os.environ.get("DJANGO_USE_PERSISTENT_SQLITE", "False") == "True"
+
+if DATABASE_URL:
+    DATABASES = {
+        "default": dj_database_url.parse(
+            DATABASE_URL,
+            conn_max_age=600,
+            conn_health_checks=True,
+            ssl_require=os.environ.get("DJANGO_DB_SSL_REQUIRE", "True") == "True",
+        )
+    }
+elif DEBUG or USE_PERSISTENT_SQLITE:
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": BASE_DIR / "db.sqlite3",
+        }
+    }
+else:
+    raise ImproperlyConfigured(
+        "DATABASE_URL is required when DEBUG is False. Set a persistent database URL before deploying."
+    )
 
 AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
@@ -110,7 +121,6 @@ SECURE_HSTS_INCLUDE_SUBDOMAINS = not DEBUG
 SECURE_HSTS_PRELOAD = not DEBUG
 SECURE_SSL_REDIRECT = os.environ.get("DJANGO_SECURE_SSL_REDIRECT", "False") == "True"
 
-# The public key path is configurable so the secure challenge flow can work in local and hosted environments.
 SECURE_ACCESS_PUBLIC_KEY_PATH = Path(
     os.environ.get(
         "DJANGO_PUBLIC_KEY_PATH",
