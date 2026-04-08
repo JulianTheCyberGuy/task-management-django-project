@@ -13,6 +13,7 @@
 
             <div class="page-toolbar">
                 <a class="button" href="{% url 'taskstatus-edit' status.pk %}">Edit Task Status</a>
+                <a class="button secondary-button" href="{% url 'taskstatus-delete' status.pk %}">Delete Task Status</a>
                 <a class="text-link-action" href="{% url 'taskstatus-list' %}">Back to Task Statuses</a>
             </div>
         </div>

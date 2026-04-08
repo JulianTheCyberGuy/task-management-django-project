@@ -1,0 +1,29 @@
+{% extends "task_app/base.html" %}
+
+{% block content %}
+<div class="detail-shell">
+    <div class="detail-card">
+        <div class="detail-topbar">
+            <div class="detail-title-group">
+                <h2 class="detail-title">Delete {{ entity_label }}</h2>
+                <p class="detail-subtitle">
+                    This action will permanently remove <strong>{{ object_label }}</strong>.
+                </p>
+            </div>
+        </div>
+
+        <div class="empty-state-card" style="margin-top: 0;">
+            <h3>Are you sure?</h3>
+            <p>This cannot be undone. If other records still depend on this item, the delete will be blocked automatically.</p>
+
+            <form method="post" class="unstyled-form">
+                {% csrf_token %}
+                <div class="page-toolbar">
+                    <button type="submit">Yes, Delete</button>
+                    <a class="button secondary-button" href="{{ cancel_url }}">Cancel</a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

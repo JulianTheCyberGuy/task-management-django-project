@@ -13,6 +13,7 @@
 
             <div class="page-toolbar">
                 <a class="button" href="{% url 'organization-edit' organization.pk %}">Edit Organization</a>
+                <a class="button secondary-button" href="{% url 'organization-delete' organization.pk %}">Delete Organization</a>
                 <a class="text-link-action" href="{% url 'organization-list' %}">Back to Organizations</a>
             </div>
         </div>

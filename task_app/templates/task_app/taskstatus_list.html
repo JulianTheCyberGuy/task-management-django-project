@@ -57,6 +57,7 @@
                     <a class="button" href="{% url 'taskstatus-detail' status.pk %}">View Details</a>
                     {% if current_user_role == 'ADMIN' or current_user_role == 'MANAGER' %}
                         <a class="text-link-action" href="{% url 'taskstatus-edit' status.pk %}">Edit</a>
+                        <a class="text-link-action" href="{% url 'taskstatus-delete' status.pk %}">Delete</a>
                     {% endif %}
                 </div>
             </article>

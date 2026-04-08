@@ -58,6 +58,7 @@
                     <a class="button" href="{% url 'organization-detail' organization.pk %}">View Details</a>
                     {% if current_user_role == 'ADMIN' %}
                         <a class="text-link-action" href="{% url 'organization-edit' organization.pk %}">Edit</a>
+                        <a class="text-link-action" href="{% url 'organization-delete' organization.pk %}">Delete</a>
                     {% endif %}
                 </div>
             </article>

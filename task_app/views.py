@@ -10,21 +10,23 @@ from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.primitives.serialization import load_pem_public_key
 from django.conf import settings
 from django.contrib import messages
-from django.contrib.auth import login
+from django.contrib.auth import get_user_model, login
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
+from django.db.models.deletion import ProtectedError
 from django.db.models import Count, Q
 from django.db.models.functions import TruncDate
 from django.http import Http404, HttpResponse
-from django.shortcuts import get_object_or_404, redirect, render
+from django.shortcuts import redirect, render
 from django.urls import reverse, reverse_lazy
 from django.utils.http import urlencode
 from django.utils import timezone
 from django.views import View
-from django.views.generic import CreateView, DetailView, FormView, ListView, TemplateView, UpdateView
+from django.views.generic import CreateView, DeleteView, DetailView, FormView, ListView, TemplateView, UpdateView
 
 from .access import (
     ROLE_ADMIN,
     ROLE_MANAGER,
+    ROLE_MEMBER,
     can_manage_app,
     get_user_organization,
     get_user_role,
@@ -34,8 +36,12 @@ from .access import (
     tasks_for_user,
 )
 from .forms import AdminUserManagementForm, OrganizationForm, ProfileUpdateForm, ProjectForm, SignUpForm, TaskForm, TaskStatusForm
-from .models import AuditLog, Organization, Project, SecurityEvent, Task, TaskStatus, User, UserProfile
+from .models import AuditLog, Organization, Project, SecurityEvent, Task, TaskStatus, UserProfile
 
+
+
+
+User = get_user_model()
 
 SORT_LABELS = {
     "name": "Name",
@@ -242,6 +248,13 @@ def verify_signature_against_challenge(public_key, signature, submitted_challeng
     raise InvalidSignature
 
 
+def parse_session_iso_datetime(value):
+    parsed_value = timezone.datetime.fromisoformat(value)
+    if timezone.is_naive(parsed_value):
+        parsed_value = timezone.make_aware(parsed_value, timezone.get_current_timezone())
+    return parsed_value
+
+
 class ScopedAccessMixin(LoginRequiredMixin):
     def get_user_role(self):
         return get_user_role(self.request.user)
@@ -250,30 +263,56 @@ class ScopedAccessMixin(LoginRequiredMixin):
         return get_user_organization(self.request.user)
 
 
-class ManagerRequiredMixin(ScopedAccessMixin, UserPassesTestMixin):
-    permission_denied_message = "Manager access is required to manage this resource."
+class RoleRequiredMixin(ScopedAccessMixin, UserPassesTestMixin):
+    permission_denied_message = "You do not have permission to access this resource."
+    denied_event_type = "access_denied"
+    minimum_role = ROLE_MEMBER
+
+    def has_required_role(self):
+        raise NotImplementedError("Subclasses must implement has_required_role().")
 
     def test_func(self):
+        return self.has_required_role()
+
+    def handle_no_permission(self):
+        if not self.request.user.is_authenticated:
+            return super().handle_no_permission()
+        write_security_event(
+            self.request,
+            self.denied_event_type,
+            SecurityEvent.SEVERITY_WARNING,
+            self.permission_denied_message,
+        )
+        context = {
+            "required_role": role_display_name(self.minimum_role),
+            "access_denied_message": self.permission_denied_message,
+        }
+        return render(self.request, "task_app/access_denied.html", context, status=403)
+
+
+class ManagerRequiredMixin(RoleRequiredMixin):
+    permission_denied_message = "Manager access is required to manage this resource."
+    denied_event_type = "manager_access_denied"
+    minimum_role = ROLE_MANAGER
+
+    def has_required_role(self):
         return can_manage_app(self.request.user)
 
-    def handle_no_permission(self):
-        if not self.request.user.is_authenticated:
-            return super().handle_no_permission()
-        write_security_event(self.request, "manager_access_denied", SecurityEvent.SEVERITY_WARNING, self.permission_denied_message)
-        return redirect_access_denied(self.request, ROLE_MANAGER, self.permission_denied_message)
 
-
-class AdminRequiredMixin(ScopedAccessMixin, UserPassesTestMixin):
+class AdminRequiredMixin(RoleRequiredMixin):
     permission_denied_message = "Administrator access is required to access this page."
+    denied_event_type = "admin_access_denied"
+    minimum_role = ROLE_ADMIN
 
-    def test_func(self):
+    def has_required_role(self):
         return is_admin(self.request.user)
 
-    def handle_no_permission(self):
-        if not self.request.user.is_authenticated:
-            return super().handle_no_permission()
-        write_security_event(self.request, "admin_access_denied", SecurityEvent.SEVERITY_WARNING, self.permission_denied_message)
-        return redirect_access_denied(self.request, ROLE_ADMIN, self.permission_denied_message)
+
+class UserScopedFormKwargsMixin:
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["user"] = self.request.user
+        return kwargs
 
 
 class AuditFormSuccessMixin:
@@ -292,6 +331,55 @@ class AuditFormSuccessMixin:
         )
         return response
 
+
+
+
+class SafeDeleteMixin:
+    template_name = "task_app/delete_confirm.html"
+    success_url = reverse_lazy("home")
+    audit_action = AuditLog.ACTION_DENIED
+    audit_entity_type = "object"
+    success_message = "Item deleted successfully."
+    protected_error_message = "This item cannot be deleted because other records still depend on it."
+    object_label_field = "name"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context.setdefault("object_label", getattr(self.object, self.object_label_field, str(self.object)))
+        context.setdefault("entity_label", self.audit_entity_type.replace("_", " ").title())
+        context.setdefault("cancel_url", self.get_cancel_url())
+        return context
+
+    def post(self, request, *args, **kwargs):
+        self.object = self.get_object()
+        object_label = getattr(self.object, self.object_label_field, str(self.object))
+        try:
+            response = super().post(request, *args, **kwargs)
+        except ProtectedError:
+            messages.error(request, self.protected_error_message)
+            write_audit_log(
+                user=request.user,
+                action=AuditLog.ACTION_DENIED,
+                entity_type=self.audit_entity_type,
+                entity_id=self.object.pk,
+                summary=f"{self.audit_entity_type} delete blocked",
+                metadata={"path": request.path},
+            )
+            return redirect(self.get_cancel_url())
+
+        messages.success(request, self.success_message)
+        write_audit_log(
+            user=request.user,
+            action=AuditLog.ACTION_UPDATE,
+            entity_type=self.audit_entity_type,
+            entity_id=self.object.pk,
+            summary=f"{self.audit_entity_type} deleted",
+            metadata={"path": request.path, "label": object_label},
+        )
+        return response
+
+    def get_cancel_url(self):
+        raise NotImplementedError("Subclasses must implement get_cancel_url().")
 
 class SignUpView(CreateView):
     template_name = "registration/signup.html"
@@ -339,10 +427,6 @@ class ProfileUpdateView(ScopedAccessMixin, FormView):
     template_name = "task_app/profile.html"
     success_url = reverse_lazy("profile")
 
-    def get_form_kwargs(self):
-        kwargs = super().get_form_kwargs()
-        kwargs["user"] = self.request.user
-        return kwargs
 
     def get_initial(self):
         return {
@@ -371,69 +455,6 @@ class ProfileUpdateView(ScopedAccessMixin, FormView):
 
     def form_invalid(self, form):
         return self.render_to_response(self.get_context_data(form=form))
-
-
-class ManageUserListView(AdminRequiredMixin, ListView):
-    model = User
-    template_name = "task_app/manage_user_list.html"
-    context_object_name = "managed_users"
-
-    def get_queryset(self):
-        queryset = User.objects.select_related("profile", "profile__organization").annotate(
-            assigned_task_total=Count("assigned_tasks", distinct=True)
-        )
-        query = get_clean_query(self.request)
-        queryset = apply_text_search(
-            queryset,
-            query,
-            ["username", "first_name", "last_name", "email", "profile__organization__name"],
-        )
-        return queryset.order_by("username")
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context["search_query"] = get_clean_query(self.request)
-        context["result_count"] = context["managed_users"].count()
-        return context
-
-
-class ManageUserDetailView(AdminRequiredMixin, DetailView):
-    model = User
-    template_name = "task_app/manage_user_detail.html"
-    context_object_name = "managed_user"
-
-    def get_queryset(self):
-        return User.objects.select_related("profile", "profile__organization")
-
-
-class ManageUserUpdateView(AdminRequiredMixin, AuditFormSuccessMixin, UpdateView):
-    model = UserProfile
-    template_name = "task_app/manage_user_form.html"
-    form_class = AdminUserManagementForm
-    audit_action = AuditLog.ACTION_UPDATE
-    audit_entity_type = "user_profile"
-
-    def get_object(self, queryset=None):
-        managed_user = get_object_or_404(User.objects.select_related("profile"), pk=self.kwargs["pk"])
-        profile, _ = UserProfile.objects.get_or_create(user=managed_user)
-        return profile
-
-    def get_success_url(self):
-        return reverse_lazy("manage-user-detail", kwargs={"pk": self.kwargs["pk"]})
-
-    def get_form_kwargs(self):
-        kwargs = super().get_form_kwargs()
-        kwargs["user"] = self.request.user
-        return kwargs
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context["managed_user"] = self.object.user
-        return context
-
-    def form_valid(self, form):
-        messages.success(self.request, f"Updated access settings for {self.object.user.username}.")
-        return super().form_valid(form)
 
 
 class HomePageView(ScopedAccessMixin, TemplateView):
@@ -505,7 +526,7 @@ class OrganizationDetailView(ScopedAccessMixin, DetailView):
         return organizations_for_user(self.request.user)
 
 
-class OrganizationCreateView(AdminRequiredMixin, AuditFormSuccessMixin, CreateView):
+class OrganizationCreateView(AdminRequiredMixin, UserScopedFormKwargsMixin, AuditFormSuccessMixin, CreateView):
     model = Organization
     template_name = "task_app/organization_form.html"
     form_class = OrganizationForm
@@ -513,13 +534,9 @@ class OrganizationCreateView(AdminRequiredMixin, AuditFormSuccessMixin, CreateVi
     audit_action = AuditLog.ACTION_CREATE
     audit_entity_type = "organization"
 
-    def get_form_kwargs(self):
-        kwargs = super().get_form_kwargs()
-        kwargs["user"] = self.request.user
-        return kwargs
 
 
-class OrganizationUpdateView(AdminRequiredMixin, AuditFormSuccessMixin, UpdateView):
+class OrganizationUpdateView(AdminRequiredMixin, UserScopedFormKwargsMixin, AuditFormSuccessMixin, UpdateView):
     model = Organization
     template_name = "task_app/organization_form.html"
     form_class = OrganizationForm
@@ -530,10 +547,19 @@ class OrganizationUpdateView(AdminRequiredMixin, AuditFormSuccessMixin, UpdateVi
     def get_queryset(self):
         return organizations_for_user(self.request.user)
 
-    def get_form_kwargs(self):
-        kwargs = super().get_form_kwargs()
-        kwargs["user"] = self.request.user
-        return kwargs
+
+class OrganizationDeleteView(AdminRequiredMixin, SafeDeleteMixin, DeleteView):
+    model = Organization
+    success_url = reverse_lazy("organization-list")
+    audit_entity_type = "organization"
+    success_message = "Organization deleted successfully."
+    protected_error_message = "This organization cannot be deleted because it still has related records."
+
+    def get_queryset(self):
+        return organizations_for_user(self.request.user)
+
+    def get_cancel_url(self):
+        return reverse("organization-detail", args=[self.object.pk])
 
 
 class ProjectListView(ScopedAccessMixin, ListView):
@@ -568,7 +594,7 @@ class ProjectDetailView(ScopedAccessMixin, DetailView):
         return projects_for_user(self.request.user).select_related("organization")
 
 
-class ProjectCreateView(ManagerRequiredMixin, AuditFormSuccessMixin, CreateView):
+class ProjectCreateView(ManagerRequiredMixin, UserScopedFormKwargsMixin, AuditFormSuccessMixin, CreateView):
     model = Project
     template_name = "task_app/project_form.html"
     form_class = ProjectForm
@@ -576,13 +602,9 @@ class ProjectCreateView(ManagerRequiredMixin, AuditFormSuccessMixin, CreateView)
     audit_action = AuditLog.ACTION_CREATE
     audit_entity_type = "project"
 
-    def get_form_kwargs(self):
-        kwargs = super().get_form_kwargs()
-        kwargs["user"] = self.request.user
-        return kwargs
 
 
-class ProjectUpdateView(ManagerRequiredMixin, AuditFormSuccessMixin, UpdateView):
+class ProjectUpdateView(ManagerRequiredMixin, UserScopedFormKwargsMixin, AuditFormSuccessMixin, UpdateView):
     model = Project
     template_name = "task_app/project_form.html"
     form_class = ProjectForm
@@ -593,10 +615,19 @@ class ProjectUpdateView(ManagerRequiredMixin, AuditFormSuccessMixin, UpdateView)
     def get_queryset(self):
         return projects_for_user(self.request.user)
 
-    def get_form_kwargs(self):
-        kwargs = super().get_form_kwargs()
-        kwargs["user"] = self.request.user
-        return kwargs
+
+class ProjectDeleteView(ManagerRequiredMixin, SafeDeleteMixin, DeleteView):
+    model = Project
+    success_url = reverse_lazy("project-list")
+    audit_entity_type = "project"
+    success_message = "Project deleted successfully."
+    protected_error_message = "This project cannot be deleted right now because related records still depend on it."
+
+    def get_queryset(self):
+        return projects_for_user(self.request.user)
+
+    def get_cancel_url(self):
+        return reverse("project-detail", args=[self.object.pk])
 
 
 class TaskStatusListView(ScopedAccessMixin, ListView):
@@ -623,7 +654,7 @@ class TaskStatusDetailView(ScopedAccessMixin, DetailView):
     context_object_name = "status"
 
 
-class TaskStatusCreateView(ManagerRequiredMixin, AuditFormSuccessMixin, CreateView):
+class TaskStatusCreateView(ManagerRequiredMixin, UserScopedFormKwargsMixin, AuditFormSuccessMixin, CreateView):
     model = TaskStatus
     template_name = "task_app/taskstatus_form.html"
     form_class = TaskStatusForm
@@ -631,13 +662,9 @@ class TaskStatusCreateView(ManagerRequiredMixin, AuditFormSuccessMixin, CreateVi
     audit_action = AuditLog.ACTION_CREATE
     audit_entity_type = "task_status"
 
-    def get_form_kwargs(self):
-        kwargs = super().get_form_kwargs()
-        kwargs["user"] = self.request.user
-        return kwargs
 
 
-class TaskStatusUpdateView(ManagerRequiredMixin, AuditFormSuccessMixin, UpdateView):
+class TaskStatusUpdateView(ManagerRequiredMixin, UserScopedFormKwargsMixin, AuditFormSuccessMixin, UpdateView):
     model = TaskStatus
     template_name = "task_app/taskstatus_form.html"
     form_class = TaskStatusForm
@@ -645,10 +672,16 @@ class TaskStatusUpdateView(ManagerRequiredMixin, AuditFormSuccessMixin, UpdateVi
     audit_action = AuditLog.ACTION_UPDATE
     audit_entity_type = "task_status"
 
-    def get_form_kwargs(self):
-        kwargs = super().get_form_kwargs()
-        kwargs["user"] = self.request.user
-        return kwargs
+
+class TaskStatusDeleteView(ManagerRequiredMixin, SafeDeleteMixin, DeleteView):
+    model = TaskStatus
+    success_url = reverse_lazy("taskstatus-list")
+    audit_entity_type = "task_status"
+    success_message = "Task status deleted successfully."
+    protected_error_message = "This task status cannot be deleted because tasks are still using it."
+
+    def get_cancel_url(self):
+        return reverse("taskstatus-detail", args=[self.object.pk])
 
 
 class TaskListView(ScopedAccessMixin, ListView):
@@ -700,7 +733,21 @@ class TaskDetailView(ScopedAccessMixin, DetailView):
         return tasks_for_user(self.request.user).select_related("project", "status", "assigned_to")
 
 
-class TaskCreateView(ManagerRequiredMixin, AuditFormSuccessMixin, CreateView):
+class TaskDeleteView(ManagerRequiredMixin, SafeDeleteMixin, DeleteView):
+    model = Task
+    success_url = reverse_lazy("task-list")
+    audit_entity_type = "task"
+    success_message = "Task deleted successfully."
+    object_label_field = "title"
+
+    def get_queryset(self):
+        return tasks_for_user(self.request.user)
+
+    def get_cancel_url(self):
+        return reverse("task-detail", args=[self.object.pk])
+
+
+class TaskCreateView(ManagerRequiredMixin, UserScopedFormKwargsMixin, AuditFormSuccessMixin, CreateView):
     model = Task
     template_name = "task_app/task_form.html"
     form_class = TaskForm
@@ -708,13 +755,9 @@ class TaskCreateView(ManagerRequiredMixin, AuditFormSuccessMixin, CreateView):
     audit_action = AuditLog.ACTION_CREATE
     audit_entity_type = "task"
 
-    def get_form_kwargs(self):
-        kwargs = super().get_form_kwargs()
-        kwargs["user"] = self.request.user
-        return kwargs
 
 
-class TaskUpdateView(ManagerRequiredMixin, AuditFormSuccessMixin, UpdateView):
+class TaskUpdateView(ManagerRequiredMixin, UserScopedFormKwargsMixin, AuditFormSuccessMixin, UpdateView):
     model = Task
     template_name = "task_app/task_form.html"
     form_class = TaskForm
@@ -725,10 +768,6 @@ class TaskUpdateView(ManagerRequiredMixin, AuditFormSuccessMixin, UpdateView):
     def get_queryset(self):
         return tasks_for_user(self.request.user)
 
-    def get_form_kwargs(self):
-        kwargs = super().get_form_kwargs()
-        kwargs["user"] = self.request.user
-        return kwargs
 
 
 class SecurityDashboardView(AdminRequiredMixin, TemplateView):
@@ -833,7 +872,7 @@ class SecurityEventListView(AdminRequiredMixin, ListView):
         context["window_value"] = get_recent_window_days(self.request)
         context["result_count"] = filtered_queryset.count()
         context["severity_options"] = SecurityEvent.SEVERITY_CHOICES
-        context["event_type_options"] = list(SecurityEvent.objects.order_by("event_type").values_list("event_type", flat=True).distinct())
+        context["event_type_options"] = list(filtered_queryset.order_by("event_type").values_list("event_type", flat=True).distinct())
         return context
 
 
@@ -1039,9 +1078,7 @@ def secure_access_view(request):
             issue_secure_challenge(request)
             return redirect("secure-access")
 
-        issued_at_dt = timezone.datetime.fromisoformat(issued_at)
-        if timezone.is_naive(issued_at_dt):
-            issued_at_dt = timezone.make_aware(issued_at_dt, timezone.get_current_timezone())
+        issued_at_dt = parse_session_iso_datetime(issued_at)
         if timezone.now() > issued_at_dt + timedelta(minutes=5):
             write_security_event(request, "signature_challenge_expired", SecurityEvent.SEVERITY_WARNING, "Secure challenge expired before signature verification.")
             messages.error(request, "Your secure challenge expired. Please sign the new challenge.")
@@ -1098,9 +1135,7 @@ def protected_report_view(request):
         messages.error(request, "You must verify a signed challenge before accessing this report.")
         return redirect("secure-access")
 
-    verified_at = timezone.datetime.fromisoformat(verified_at_str)
-    if timezone.is_naive(verified_at):
-        verified_at = timezone.make_aware(verified_at, timezone.get_current_timezone())
+    verified_at = parse_session_iso_datetime(verified_at_str)
     if timezone.now() > verified_at + timedelta(minutes=10):
         request.session.pop("secure_verified_at", None)
         write_security_event(request, "protected_report_verification_expired", SecurityEvent.SEVERITY_WARNING, "Protected report access window expired.")
@@ -1117,3 +1152,66 @@ def protected_report_view(request):
     )
     write_security_event(request, "protected_report_viewed", SecurityEvent.SEVERITY_INFO, f"Protected report viewed with {tasks.count()} tasks in scope.")
     return render(request, "task_app/protected_report.html", {"tasks": tasks})
+
+class ManageUserListView(AdminRequiredMixin, ListView):
+    model = User
+    template_name = "task_app/manage_user_list.html"
+    context_object_name = "managed_users"
+
+    def get_queryset(self):
+        queryset = User.objects.select_related("profile", "profile__organization").annotate(
+            assigned_task_total=Count("assigned_tasks", distinct=True)
+        )
+        query = get_clean_query(self.request)
+        queryset = apply_text_search(
+            queryset,
+            query,
+            ["username", "first_name", "last_name", "email", "profile__organization__name"],
+        )
+        return queryset.order_by("username")
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["search_query"] = get_clean_query(self.request)
+        context["result_count"] = context["managed_users"].count()
+        return context
+
+
+class ManageUserDetailView(AdminRequiredMixin, DetailView):
+    model = User
+    template_name = "task_app/manage_user_detail.html"
+    context_object_name = "managed_user"
+
+    def get_queryset(self):
+        return User.objects.select_related("profile", "profile__organization")
+
+
+class ManageUserUpdateView(AdminRequiredMixin, UpdateView):
+    model = UserProfile
+    form_class = AdminUserManagementForm
+    template_name = "task_app/manage_user_form.html"
+
+    def get_object(self, queryset=None):
+        managed_user = User.objects.get(pk=self.kwargs["pk"])
+        profile, _ = UserProfile.objects.get_or_create(user=managed_user)
+        return profile
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["managed_user"] = self.object.user
+        return context
+
+    def form_valid(self, form):
+        messages.success(self.request, "User access details updated successfully.")
+        write_audit_log(
+            user=self.request.user,
+            action=AuditLog.ACTION_UPDATE,
+            entity_type="user_profile",
+            entity_id=self.object.user.pk,
+            summary="Administrator updated a user role or organization assignment",
+            metadata={"path": self.request.path},
+        )
+        return super().form_valid(form)
+
+    def get_success_url(self):
+        return reverse("manage-user-detail", kwargs={"pk": self.object.user.pk})
