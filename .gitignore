@@ -21,3 +21,6 @@ private_key.pem
 challenge.txt
 signature.bin
 signature.txt
+
+# Utility
+sign_challenge.py
