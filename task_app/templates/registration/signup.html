@@ -7,95 +7,126 @@
 </p>
 
 <style>
-    .organization-selector-shell {
+    .signup-org-shell {
         border: 1px solid var(--border);
         border-radius: 14px;
         background: var(--surface-alt);
         padding: 1rem;
     }
 
-    .organization-search-input {
+    .signup-org-search {
         width: 100%;
         margin-bottom: 0.85rem;
     }
 
-    .organization-selection-summary {
-        margin-bottom: 0.75rem;
+    .signup-org-summary {
+        margin-bottom: 0.85rem;
         color: var(--muted);
         font-size: 0.92rem;
     }
 
-    .organization-checkbox-list {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-        gap: 0.65rem;
-        max-height: 280px;
+    .signup-org-list {
+        display: flex !important;
+        flex-direction: column !important;
+        gap: 0.75rem !important;
+        max-height: 320px;
         overflow-y: auto;
-        padding-right: 0.25rem;
+        padding-right: 0.2rem;
     }
 
-    .organization-choice-item {
-        margin: 0;
+    .signup-org-item {
+        display: block !important;
+        width: 100% !important;
     }
 
-    .organization-choice-label {
-        display: flex;
-        align-items: flex-start;
-        gap: 0.6rem;
-        border: 1px solid var(--border);
-        border-radius: 12px;
-        background: white;
-        padding: 0.75rem 0.8rem;
-        min-height: 100%;
-        cursor: pointer;
-        transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+    .signup-org-item.is-hidden {
+        display: none !important;
     }
 
-    .organization-choice-label:hover {
-        border-color: var(--secondary);
-        box-shadow: 0 10px 24px rgba(31, 60, 136, 0.08);
-        transform: translateY(-1px);
+    .signup-org-card {
+        display: grid !important;
+        grid-template-columns: 28px minmax(0, 1fr) !important;
+        align-items: start !important;
+        column-gap: 0.85rem !important;
+        width: 100% !important;
+        border: 1px solid var(--border) !important;
+        border-radius: 12px !important;
+        background: #fff !important;
+        padding: 0.95rem 1rem !important;
+        box-sizing: border-box !important;
+        cursor: pointer !important;
+        transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
     }
 
-    .organization-choice-label input {
-        margin-top: 0.15rem;
-        flex: 0 0 auto;
+    .signup-org-card:hover {
+        border-color: var(--secondary) !important;
+        box-shadow: 0 8px 22px rgba(31, 60, 136, 0.08) !important;
     }
 
-    .organization-choice-copy {
-        display: flex;
-        flex-direction: column;
-        gap: 0.2rem;
+    .signup-org-card.is-selected {
+        border-color: var(--primary) !important;
+        background: var(--primary-soft) !important;
     }
 
-    .organization-choice-name {
-        font-weight: 700;
-        color: var(--text);
+    .signup-org-check {
+        display: flex !important;
+        align-items: flex-start !important;
+        justify-content: center !important;
+        padding-top: 0.1rem !important;
+        width: 28px !important;
     }
 
-    .organization-choice-meta {
-        color: var(--muted);
-        font-size: 0.87rem;
-        line-height: 1.45;
+    .signup-org-check input[type="checkbox"] {
+        margin: 0 !important;
+        width: 20px !important;
+        height: 20px !important;
+        transform: none !important;
+        flex: 0 0 auto !important;
     }
 
-    .organization-choice-item.is-hidden {
-        display: none;
+    .signup-org-copy {
+        display: flex !important;
+        flex-direction: column !important;
+        gap: 0.25rem !important;
+        min-width: 0 !important;
+        width: 100% !important;
     }
 
-    .organization-empty-state {
+    .signup-org-name {
+        display: block !important;
+        margin: 0 !important;
+        font-weight: 700 !important;
+        font-size: 1rem !important;
+        line-height: 1.35 !important;
+        color: var(--text) !important;
+        white-space: normal !important;
+        overflow-wrap: anywhere !important;
+        word-break: break-word !important;
+    }
+
+    .signup-org-meta {
+        display: block !important;
+        margin: 0 !important;
+        font-size: 0.9rem !important;
+        line-height: 1.5 !important;
+        color: var(--muted) !important;
+        white-space: normal !important;
+        overflow-wrap: anywhere !important;
+        word-break: break-word !important;
+    }
+
+    .signup-org-empty {
         display: none;
         border: 1px dashed var(--border);
         border-radius: 12px;
-        padding: 0.9rem;
+        padding: 0.95rem;
         text-align: center;
         color: var(--muted);
-        background: white;
+        background: #fff;
     }
 
-    .organization-choice-label.is-selected {
-        border-color: var(--primary);
-        background: var(--primary-soft);
+    .signup-org-empty.show {
+        display: block !important;
     }
 </style>
 
@@ -135,37 +166,45 @@
 
         <div class="form-field full-width-field{% if form.organizations.errors %} has-errors{% endif %}">
             <label>Organizations</label>
-            <div class="organization-selector-shell">
+
+            <div class="signup-org-shell">
                 <input
                     type="text"
                     id="organizationSearch"
-                    class="form-control organization-search-input"
+                    class="form-control signup-org-search"
                     placeholder="Search for your organization"
                     autocomplete="off"
                 >
-                <div class="organization-selection-summary">
-                    Select one or more organizations. The first one selected becomes the user's primary organization.
+
+                <div class="signup-org-summary">
+                    Select one or more organizations. The first selected becomes primary.
                 </div>
 
-                <div id="organizationList" class="organization-checkbox-list">
+                <div id="organizationList" class="signup-org-list">
                     {% for checkbox in form.organizations %}
-                        <div class="organization-choice-item" data-organization-name="{{ checkbox.choice_label|lower }}">
-                            <label class="organization-choice-label" for="{{ checkbox.id_for_label }}">
-                                {{ checkbox.tag }}
-                                <span class="organization-choice-copy">
-                                    <span class="organization-choice-name">{{ checkbox.choice_label }}</span>
-                                    <span class="organization-choice-meta">App access will be scoped to this organization after signup.</span>
+                        <div class="signup-org-item" data-organization-name="{{ checkbox.choice_label|lower }}">
+                            <label class="signup-org-card" for="{{ checkbox.id_for_label }}">
+                                <span class="signup-org-check">{{ checkbox.tag }}</span>
+                                <span class="signup-org-copy">
+                                    <span class="signup-org-name">{{ checkbox.choice_label }}</span>
+                                    <span class="signup-org-meta">
+                                        App access will be scoped to this organization after signup.
+                                    </span>
                                 </span>
                             </label>
                         </div>
                     {% empty %}
-                        <div class="organization-empty-state" style="display:block;">No organizations are available yet. Ask an administrator to add one first.</div>
+                        <div class="signup-org-empty show">
+                            No organizations are available yet. Ask an administrator to add one first.
+                        </div>
                     {% endfor %}
                 </div>
-                <div id="organizationEmptySearchState" class="organization-empty-state">
+
+                <div id="organizationEmptySearchState" class="signup-org-empty">
                     No organizations matched your search.
                 </div>
             </div>
+
             <div class="form-help-text">{{ form.organizations.help_text }}</div>
             {% if form.organizations.errors %}<div class="field-error">{{ form.organizations.errors|striptags }}</div>{% endif %}
         </div>
@@ -192,45 +231,46 @@
 </form>
 
 <script>
-    (function () {
-        const searchInput = document.getElementById("organizationSearch");
-        const organizationItems = Array.from(document.querySelectorAll(".organization-choice-item"));
-        const emptySearchState = document.getElementById("organizationEmptySearchState");
+(function () {
+    const searchInput = document.getElementById("organizationSearch");
+    const organizationItems = Array.from(document.querySelectorAll(".signup-org-item"));
+    const emptySearchState = document.getElementById("organizationEmptySearchState");
 
-        function syncSelectedState() {
-            organizationItems.forEach((item) => {
-                const checkbox = item.querySelector('input[type="checkbox"]');
-                const label = item.querySelector(".organization-choice-label");
-                if (!checkbox || !label) return;
-                label.classList.toggle("is-selected", checkbox.checked);
-            });
-        }
-
-        function filterOrganizations() {
-            const query = (searchInput?.value || "").trim().toLowerCase();
-            let visibleCount = 0;
-
-            organizationItems.forEach((item) => {
-                const name = item.dataset.organizationName || "";
-                const matches = !query || name.includes(query);
-                item.classList.toggle("is-hidden", !matches);
-                if (matches) visibleCount += 1;
-            });
-
-            if (emptySearchState) {
-                emptySearchState.style.display = visibleCount === 0 && organizationItems.length > 0 ? "block" : "none";
-            }
-        }
-
+    function syncSelectedState() {
         organizationItems.forEach((item) => {
             const checkbox = item.querySelector('input[type="checkbox"]');
-            if (!checkbox) return;
-            checkbox.addEventListener("change", syncSelectedState);
+            const card = item.querySelector(".signup-org-card");
+            if (!checkbox || !card) return;
+            card.classList.toggle("is-selected", checkbox.checked);
+        });
+    }
+
+    function filterOrganizations() {
+        const query = (searchInput?.value || "").trim().toLowerCase();
+        let visibleCount = 0;
+
+        organizationItems.forEach((item) => {
+            const name = item.dataset.organizationName || "";
+            const matches = !query || name.includes(query);
+            item.classList.toggle("is-hidden", !matches);
+            if (matches) visibleCount += 1;
         });
 
-        searchInput?.addEventListener("input", filterOrganizations);
-        syncSelectedState();
-        filterOrganizations();
-    })();
+        if (emptySearchState) {
+            emptySearchState.classList.toggle("show", visibleCount === 0 && organizationItems.length > 0);
+        }
+    }
+
+    organizationItems.forEach((item) => {
+        const checkbox = item.querySelector('input[type="checkbox"]');
+        if (!checkbox) return;
+        checkbox.addEventListener("change", syncSelectedState);
+    });
+
+    searchInput?.addEventListener("input", filterOrganizations);
+
+    syncSelectedState();
+    filterOrganizations();
+})();
 </script>
 {% endblock %}
