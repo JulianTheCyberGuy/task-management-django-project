@@ -156,6 +156,7 @@ def _task_filtered_queryset(request):
 
     sort_map = {
         "status": ["status__sort_order", "due_date", "title"],
+        "project": ["project__name", "title"],
         "due": ["due_date", "title"],
         "priority": ["-priority", "due_date", "title"],
         "recent": ["-updated_at", "title"],
@@ -716,6 +717,7 @@ class TaskListView(ScopedAccessMixin, ListView):
         context["task_completed_count"] = scoped_tasks.filter(is_completed=True).count()
         context["sort_options"] = [
             ("status", SORT_LABELS["status"]),
+            ("project", "Project"),
             ("due", SORT_LABELS["due"]),
             ("priority", SORT_LABELS["priority"]),
             ("recent", SORT_LABELS["recent"]),
