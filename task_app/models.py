@@ -47,7 +47,13 @@ class UserProfile(models.Model):
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        related_name="user_profiles",
+        related_name="primary_user_profiles",
+    )
+    organizations = models.ManyToManyField(
+        Organization,
+        blank=True,
+        related_name="member_user_profiles",
+        help_text="Organizations this user can access inside the app.",
     )
     role = models.CharField(max_length=20, choices=ROLE_CHOICES, default=ROLE_MEMBER)
     created_at = models.DateTimeField(auto_now_add=True)

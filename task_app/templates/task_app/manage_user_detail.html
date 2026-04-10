@@ -10,7 +10,7 @@
     </div>
     <div class="page-toolbar">
         <a class="button secondary-button" href="{% url 'manage-user-list' %}">Back to Users</a>
-        <a class="button" href="{% url 'manage-user-edit' managed_user.pk %}">Edit Access</a>
+        <a class="button" href="{% url 'manage-user-update' managed_user.pk %}">Edit Access</a>
     </div>
 </div>
 
@@ -33,8 +33,24 @@
             <span class="detail-value">{{ managed_user.profile.get_role_display }}</span>
         </div>
         <div class="detail-item">
-            <span class="detail-label">Organization</span>
-            <span class="detail-value">{{ managed_user.profile.organization.name|default:'No organization assigned' }}</span>
+            <span class="detail-label">Primary Organization</span>
+            <span class="detail-value">{{ managed_user.profile.organization.name|default:'No primary organization assigned' }}</span>
+        </div>
+        <div class="detail-item">
+            <span class="detail-label">Allowed Organizations</span>
+            <span class="detail-value">
+                {% with user_orgs=managed_user.profile.organizations.all %}
+                    {% if user_orgs %}
+                        {% for organization in user_orgs %}
+                            {{ organization.name }}{% if not forloop.last %}, {% endif %}
+                        {% endfor %}
+                    {% elif managed_user.profile.organization %}
+                        {{ managed_user.profile.organization.name }}
+                    {% else %}
+                        No organizations assigned
+                    {% endif %}
+                {% endwith %}
+            </span>
         </div>
         <div class="detail-item">
             <span class="detail-label">Date Joined</span>

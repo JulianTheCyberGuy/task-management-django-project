@@ -97,36 +97,55 @@ class TaskForm(StyledModelForm):
         return cleaned_data
 
 
-
-
 class AdminUserManagementForm(StyledModelForm):
     class Meta:
         model = UserProfile
-        fields = ["role", "organization"]
+        fields = ["role", "organization", "organizations"]
+        widgets = {
+            "organizations": forms.SelectMultiple(attrs={"size": 8}),
+        }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields["organization"].queryset = Organization.objects.order_by("name")
-        self.fields["organization"].empty_label = "No organization assigned"
+        organization_queryset = Organization.objects.order_by("name")
+        self.fields["organization"].queryset = organization_queryset
+        self.fields["organization"].empty_label = "No primary organization assigned"
+        self.fields["organizations"].queryset = organization_queryset
+        self.fields["organizations"].required = False
+        self.fields["organizations"].help_text = "Hold Command or Ctrl to select multiple organizations."
+
+    def clean(self):
+        cleaned_data = super().clean()
+        primary_organization = cleaned_data.get("organization")
+        organizations = cleaned_data.get("organizations")
+        if primary_organization and organizations is not None and primary_organization not in organizations:
+            self.add_error("organizations", "The primary organization must also be included in the allowed organizations list.")
+        return cleaned_data
+
 
 class SignUpForm(UserCreationForm):
     first_name = forms.CharField(max_length=150)
     last_name = forms.CharField(max_length=150)
     email = forms.EmailField()
-    organization = forms.ModelChoiceField(
+    organizations = forms.ModelMultipleChoiceField(
         queryset=Organization.objects.none(),
-        required=False,
-        empty_label="Select an organization if applicable",
+        required=True,
+        widget=forms.CheckboxSelectMultiple,
+        help_text="Select at least one organization to access after signup.",
     )
 
     class Meta(UserCreationForm.Meta):
         model = User
-        fields = ("username", "first_name", "last_name", "email", "organization", "password1", "password2")
+        fields = ("username", "first_name", "last_name", "email", "organizations", "password1", "password2")
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields["organization"].queryset = Organization.objects.order_by("name")
+        self.fields["organizations"].queryset = Organization.objects.order_by("name")
+        self.fields["organizations"].label = "Organizations"
+        self.fields["organizations"].widget.attrs["class"] = "organization-checkbox-list"
         for field_name, field in self.fields.items():
+            if field_name == "organizations":
+                continue
             existing_class = field.widget.attrs.get("class", "")
             field.widget.attrs["class"] = (existing_class + " form-control").strip()
 
@@ -136,6 +155,12 @@ class SignUpForm(UserCreationForm):
             raise forms.ValidationError("An account with this email address already exists.")
         return email
 
+    def clean_organizations(self):
+        organizations = self.cleaned_data.get("organizations")
+        if not organizations:
+            raise forms.ValidationError("Select at least one organization to continue.")
+        return organizations
+
     def save(self, commit=True):
         user = super().save(commit=False)
         user.first_name = self.cleaned_data["first_name"].strip()
@@ -144,9 +169,11 @@ class SignUpForm(UserCreationForm):
         if commit:
             user.save()
             profile = user.profile
-            profile.organization = self.cleaned_data.get("organization")
+            selected_organizations = list(self.cleaned_data["organizations"])
+            profile.organization = selected_organizations[0]
             profile.role = UserProfile.ROLE_MEMBER
             profile.save()
+            profile.organizations.set(selected_organizations)
         return user
 
 

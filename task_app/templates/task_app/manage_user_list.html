@@ -47,8 +47,20 @@
                         <span class="entity-meta-value">{{ managed_user.email|default:'No email provided' }}</span>
                     </div>
                     <div class="entity-meta-item">
-                        <span class="entity-meta-label">Organization</span>
-                        <span class="entity-meta-value">{{ managed_user.profile.organization.name|default:'No organization assigned' }}</span>
+                        <span class="entity-meta-label">Organizations</span>
+                        <span class="entity-meta-value">
+                            {% with user_orgs=managed_user.profile.organizations.all %}
+                                {% if user_orgs %}
+                                    {% for organization in user_orgs %}
+                                        {{ organization.name }}{% if not forloop.last %}, {% endif %}
+                                    {% endfor %}
+                                {% elif managed_user.profile.organization %}
+                                    {{ managed_user.profile.organization.name }}
+                                {% else %}
+                                    No organization assigned
+                                {% endif %}
+                            {% endwith %}
+                        </span>
                     </div>
                     <div class="entity-meta-item">
                         <span class="entity-meta-label">Assigned Tasks</span>
@@ -58,7 +70,7 @@
 
                 <div class="entity-card-actions">
                     <a class="button" href="{% url 'manage-user-detail' managed_user.pk %}">View Details</a>
-                    <a class="text-link-action" href="{% url 'manage-user-edit' managed_user.pk %}">Edit Access</a>
+                    <a class="text-link-action" href="{% url 'manage-user-update' managed_user.pk %}">Edit Access</a>
                 </div>
             </article>
         {% endfor %}

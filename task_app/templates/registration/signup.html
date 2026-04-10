@@ -6,6 +6,99 @@
     Register a new account to access the dashboard, calendar, and task workflows. New self-service accounts are created as members by default.
 </p>
 
+<style>
+    .organization-selector-shell {
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        background: var(--surface-alt);
+        padding: 1rem;
+    }
+
+    .organization-search-input {
+        width: 100%;
+        margin-bottom: 0.85rem;
+    }
+
+    .organization-selection-summary {
+        margin-bottom: 0.75rem;
+        color: var(--muted);
+        font-size: 0.92rem;
+    }
+
+    .organization-checkbox-list {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 0.65rem;
+        max-height: 280px;
+        overflow-y: auto;
+        padding-right: 0.25rem;
+    }
+
+    .organization-choice-item {
+        margin: 0;
+    }
+
+    .organization-choice-label {
+        display: flex;
+        align-items: flex-start;
+        gap: 0.6rem;
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        background: white;
+        padding: 0.75rem 0.8rem;
+        min-height: 100%;
+        cursor: pointer;
+        transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+    }
+
+    .organization-choice-label:hover {
+        border-color: var(--secondary);
+        box-shadow: 0 10px 24px rgba(31, 60, 136, 0.08);
+        transform: translateY(-1px);
+    }
+
+    .organization-choice-label input {
+        margin-top: 0.15rem;
+        flex: 0 0 auto;
+    }
+
+    .organization-choice-copy {
+        display: flex;
+        flex-direction: column;
+        gap: 0.2rem;
+    }
+
+    .organization-choice-name {
+        font-weight: 700;
+        color: var(--text);
+    }
+
+    .organization-choice-meta {
+        color: var(--muted);
+        font-size: 0.87rem;
+        line-height: 1.45;
+    }
+
+    .organization-choice-item.is-hidden {
+        display: none;
+    }
+
+    .organization-empty-state {
+        display: none;
+        border: 1px dashed var(--border);
+        border-radius: 12px;
+        padding: 0.9rem;
+        text-align: center;
+        color: var(--muted);
+        background: white;
+    }
+
+    .organization-choice-label.is-selected {
+        border-color: var(--primary);
+        background: var(--primary-soft);
+    }
+</style>
+
 <form method="post" class="app-form-card compact-form-card">
     {% csrf_token %}
 
@@ -40,11 +133,41 @@
             {% if form.email.errors %}<div class="field-error">{{ form.email.errors|striptags }}</div>{% endif %}
         </div>
 
-        <div class="form-field full-width-field{% if form.organization.errors %} has-errors{% endif %}">
-            <label for="{{ form.organization.id_for_label }}">Organization</label>
-            {{ form.organization }}
-            <div class="form-help-text">Select your organization if it already exists. You can leave this blank and have an admin assign it later.</div>
-            {% if form.organization.errors %}<div class="field-error">{{ form.organization.errors|striptags }}</div>{% endif %}
+        <div class="form-field full-width-field{% if form.organizations.errors %} has-errors{% endif %}">
+            <label>Organizations</label>
+            <div class="organization-selector-shell">
+                <input
+                    type="text"
+                    id="organizationSearch"
+                    class="form-control organization-search-input"
+                    placeholder="Search for your organization"
+                    autocomplete="off"
+                >
+                <div class="organization-selection-summary">
+                    Select one or more organizations. The first one selected becomes the user's primary organization.
+                </div>
+
+                <div id="organizationList" class="organization-checkbox-list">
+                    {% for checkbox in form.organizations %}
+                        <div class="organization-choice-item" data-organization-name="{{ checkbox.choice_label|lower }}">
+                            <label class="organization-choice-label" for="{{ checkbox.id_for_label }}">
+                                {{ checkbox.tag }}
+                                <span class="organization-choice-copy">
+                                    <span class="organization-choice-name">{{ checkbox.choice_label }}</span>
+                                    <span class="organization-choice-meta">App access will be scoped to this organization after signup.</span>
+                                </span>
+                            </label>
+                        </div>
+                    {% empty %}
+                        <div class="organization-empty-state" style="display:block;">No organizations are available yet. Ask an administrator to add one first.</div>
+                    {% endfor %}
+                </div>
+                <div id="organizationEmptySearchState" class="organization-empty-state">
+                    No organizations matched your search.
+                </div>
+            </div>
+            <div class="form-help-text">{{ form.organizations.help_text }}</div>
+            {% if form.organizations.errors %}<div class="field-error">{{ form.organizations.errors|striptags }}</div>{% endif %}
         </div>
 
         <div class="form-field{% if form.password1.errors %} has-errors{% endif %}">
@@ -67,4 +190,47 @@
         <a class="text-link-action" href="{% url 'login' %}">Already have an account? Sign in</a>
     </div>
 </form>
+
+<script>
+    (function () {
+        const searchInput = document.getElementById("organizationSearch");
+        const organizationItems = Array.from(document.querySelectorAll(".organization-choice-item"));
+        const emptySearchState = document.getElementById("organizationEmptySearchState");
+
+        function syncSelectedState() {
+            organizationItems.forEach((item) => {
+                const checkbox = item.querySelector('input[type="checkbox"]');
+                const label = item.querySelector(".organization-choice-label");
+                if (!checkbox || !label) return;
+                label.classList.toggle("is-selected", checkbox.checked);
+            });
+        }
+
+        function filterOrganizations() {
+            const query = (searchInput?.value || "").trim().toLowerCase();
+            let visibleCount = 0;
+
+            organizationItems.forEach((item) => {
+                const name = item.dataset.organizationName || "";
+                const matches = !query || name.includes(query);
+                item.classList.toggle("is-hidden", !matches);
+                if (matches) visibleCount += 1;
+            });
+
+            if (emptySearchState) {
+                emptySearchState.style.display = visibleCount === 0 && organizationItems.length > 0 ? "block" : "none";
+            }
+        }
+
+        organizationItems.forEach((item) => {
+            const checkbox = item.querySelector('input[type="checkbox"]');
+            if (!checkbox) return;
+            checkbox.addEventListener("change", syncSelectedState);
+        });
+
+        searchInput?.addEventListener("input", filterOrganizations);
+        syncSelectedState();
+        filterOrganizations();
+    })();
+</script>
 {% endblock %}

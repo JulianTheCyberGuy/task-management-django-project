@@ -39,12 +39,43 @@ def get_user_role(user):
     return ROLE_MEMBER
 
 
+def get_user_organizations(user):
+    """Return all organizations the user can access.
+
+    The app keeps a primary organization for display and compatibility, while
+    the many-to-many membership list drives actual visibility rules.
+    """
+    if not user.is_authenticated or user.is_superuser:
+        return Organization.objects.none()
+
+    profile = getattr(user, "profile", None)
+    if profile is None:
+        return Organization.objects.none()
+
+    memberships = profile.organizations.all().order_by("name")
+    if memberships.exists():
+        return memberships
+
+    primary_organization = getattr(profile, "organization", None)
+    if primary_organization is None:
+        return Organization.objects.none()
+
+    return Organization.objects.filter(pk=primary_organization.pk)
+
+
 def get_user_organization(user):
-    """Return the user's scoped organization, if one exists."""
+    """Return the user's primary scoped organization, if one exists."""
     if not user.is_authenticated or user.is_superuser:
         return None
+
     profile = getattr(user, "profile", None)
-    return getattr(profile, "organization", None)
+    if profile is None:
+        return None
+
+    if profile.organization_id:
+        return profile.organization
+
+    return get_user_organizations(user).first()
 
 
 def can_manage_app(user):
@@ -64,29 +95,24 @@ def organizations_for_user(user):
     if is_admin(user):
         return Organization.objects.all()
 
-    organization = get_user_organization(user)
-    if organization is None:
-        return Organization.objects.none()
-    return Organization.objects.filter(pk=organization.pk)
+    return get_user_organizations(user)
 
 
 def projects_for_user(user):
-    """Scope project visibility to the user's organization unless they are an admin."""
+    """Scope project visibility to the user's organizations unless they are an admin."""
     if not user.is_authenticated:
         return Project.objects.none()
     if is_admin(user):
         return Project.objects.all()
 
-    organization = get_user_organization(user)
-    if organization is None:
-        return Project.objects.none()
-    return Project.objects.filter(organization=organization)
+    organization_ids = organizations_for_user(user).values_list("pk", flat=True)
+    return Project.objects.filter(organization_id__in=organization_ids)
 
 
 def tasks_for_user(user):
     """Apply task visibility rules based on role.
 
-    Admins can see everything, managers can see tasks inside their organization,
+    Admins can see everything, managers can see tasks inside their organizations,
     and members can only see work assigned directly to them.
     """
     if not user.is_authenticated:
@@ -95,10 +121,8 @@ def tasks_for_user(user):
     if role == ROLE_ADMIN:
         return Task.objects.all()
     if role == ROLE_MANAGER:
-        organization = get_user_organization(user)
-        if organization is None:
-            return Task.objects.none()
-        return Task.objects.filter(project__organization=organization)
+        organization_ids = organizations_for_user(user).values_list("pk", flat=True)
+        return Task.objects.filter(project__organization_id__in=organization_ids)
     return Task.objects.filter(assigned_to=user)
 
 
@@ -109,8 +133,8 @@ def manageable_users_for_user(user):
     if is_admin(user):
         return User.objects.all().order_by("username")
 
-    organization = get_user_organization(user)
-    if organization is None:
+    organization_ids = organizations_for_user(user).values_list("pk", flat=True)
+    if not organization_ids:
         return User.objects.none()
 
-    return User.objects.filter(profile__organization=organization).order_by("username")
+    return User.objects.filter(profile__organizations__in=organization_ids).distinct().order_by("username")

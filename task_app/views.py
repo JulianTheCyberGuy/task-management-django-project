@@ -1159,16 +1159,16 @@ class ManageUserListView(AdminRequiredMixin, ListView):
     context_object_name = "managed_users"
 
     def get_queryset(self):
-        queryset = User.objects.select_related("profile", "profile__organization").annotate(
+        queryset = User.objects.select_related("profile", "profile__organization").prefetch_related("profile__organizations").annotate(
             assigned_task_total=Count("assigned_tasks", distinct=True)
         )
         query = get_clean_query(self.request)
         queryset = apply_text_search(
             queryset,
             query,
-            ["username", "first_name", "last_name", "email", "profile__organization__name"],
+            ["username", "first_name", "last_name", "email", "profile__organization__name", "profile__organizations__name"],
         )
-        return queryset.order_by("username")
+        return queryset.order_by("username").distinct()
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -1183,7 +1183,7 @@ class ManageUserDetailView(AdminRequiredMixin, DetailView):
     context_object_name = "managed_user"
 
     def get_queryset(self):
-        return User.objects.select_related("profile", "profile__organization")
+        return User.objects.select_related("profile", "profile__organization").prefetch_related("profile__organizations")
 
 
 class ManageUserUpdateView(AdminRequiredMixin, UpdateView):
